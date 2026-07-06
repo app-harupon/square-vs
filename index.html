@@ -269,10 +269,24 @@
   <div id="story-modal" class="modal-overlay" hidden>
     <div class="modal-card modal-scroll">
       <h2>📖 黎明の大地 - 国盗り合戦</h2>
-      <p class="hint">黎明の国のノアとして、9つの国を順に攻め落としていきましょう。討ち取った敵兵は兵種そのままに予備兵力として編成できます。</p>
+      <p class="hint">黎明の国のノアとして、隣接する国を自由に攻めたり、同盟を結んだりしながら大陸を統一しましょう。目を離した隙に他国に領土を奪われることもあります。</p>
       <p id="story-reserve" class="hint"></p>
-      <div id="story-nation-list" class="story-nation-list"></div>
+      <div id="story-map-grid" class="story-map-grid"></div>
+      <div id="story-map-legend" class="story-map-legend"></div>
       <button id="story-close-btn" class="btn btn-ghost">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ===== 国盗り合戦: マス選択時のアクション ===== -->
+  <div id="story-tile-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2 id="story-tile-title">国名</h2>
+      <p id="story-tile-desc" class="hint"></p>
+      <div class="panel-actions">
+        <button id="story-tile-attack-btn" class="btn btn-primary">⚔️ 攻める</button>
+        <button id="story-tile-ally-btn" class="btn btn-action">🤝 同盟を結ぶ</button>
+        <button id="story-tile-cancel-btn" class="btn btn-ghost">閉じる</button>
+      </div>
     </div>
   </div>
 

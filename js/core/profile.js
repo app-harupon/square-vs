@@ -9,8 +9,9 @@ const DEFAULT_PROFILE = {
   loginStreak: 0,
   unlockedCards: [],
   unlockedGenerals: [],
-  storyProgress: 0, // クリア済みの累計「領土」数(国によっては複数回の攻略が必要)
   storyReserve: { infantry: 0, archer: 0, cavalry: 0 }, // 降伏兵を吸収した予備兵力ストック(兵種固定)
+  storyMap: null, // { width, height, tiles: 国別の元々の領有国, owners } (キャンペーン開始時に1回だけ生成して固定)
+  storyAlliances: [], // プレイヤーと同盟を結んだ国のID一覧
 };
 
 export function loadProfile() {

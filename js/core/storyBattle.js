@@ -31,7 +31,9 @@ function generatePlayerSquadTemplates(ownerId, profile) {
   return list;
 }
 
-export function createStoryGame(nation, profile = null) {
+// tileTroopCount: このマス(領土1つ分、およそ2000人の駐留軍)を守る敵兵力。
+// 国の総兵力をそのまま使うのではなく、マス単位の駐留軍规模で1回の合戦を構成する。
+export function createStoryGame(nation, tileTroopCount, profile = null) {
   const grid = generateTerrain(STORY_BOARD_SIZE, STORY_DEPLOY_DEPTH);
   const state = {
     mode: { id: 'story', name: 'ストーリーモード', boardSize: STORY_BOARD_SIZE, deployDepth: STORY_DEPLOY_DEPTH },
@@ -44,7 +46,7 @@ export function createStoryGame(nation, profile = null) {
     },
     deployQueue: {
       A: generatePlayerSquadTemplates('A', profile),
-      B: generateNationSquadTemplates('B', nation.totalTroops, nation.composition, dominantType(nation.composition), profile),
+      B: generateNationSquadTemplates('B', tileTroopCount, nation.composition, dominantType(nation.composition), profile),
     },
     phase: 'deploy',
     currentPlayer: 'A',

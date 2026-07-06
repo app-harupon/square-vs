@@ -418,28 +418,44 @@ body {
 #online-waiting-view { text-align: center; padding: 10px 0; }
 #online-waiting-view .hint { margin-bottom: 14px; }
 
-/* ---------- ストーリーモード ---------- */
-.story-nation-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
-.story-nation-card {
+/* ---------- ストーリーモード: 世界地図 ---------- */
+.story-map-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 3px;
+  margin: 14px 0;
+  background: #dfe6ee;
+  padding: 6px;
+  border-radius: var(--radius-md);
+}
+.story-map-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 5px;
+  background: #cfd6de;
+  border: none;
+  padding: 0;
+  cursor: default;
+}
+.story-map-tile.player { box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px #3d7fd6; }
+.story-map-tile.attackable { cursor: pointer; box-shadow: 0 0 0 2px #ffe14d; animation: storyTilePulse 1.6s ease-in-out infinite; }
+.story-map-tile.locked { opacity: 0.55; }
+.story-map-tile.allied::after {
+  content: '🤝';
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  background: #f5f6fa;
-  border: none;
-  text-align: left;
-  font-family: inherit;
-  color: var(--ink);
+  justify-content: center;
+  font-size: 0.6rem;
 }
-.story-nation-card .flag { width: 14px; height: 34px; border-radius: 4px; flex-shrink: 0; }
-.story-nation-card .info { flex: 1; }
-.story-nation-card b { display: block; }
-.story-nation-card span { font-size: 0.8rem; color: var(--ink-soft); }
-.story-nation-card .status { font-size: 1.2rem; }
-.story-nation-card.current { background: linear-gradient(135deg, #fff3d6, #ffe4a3); box-shadow: var(--shadow-soft); }
-.story-nation-card.locked { opacity: 0.5; }
-.story-nation-card.cleared .status { color: #4ad66d; }
+@keyframes storyTilePulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 225, 77, 0.5); }
+  50% { box-shadow: 0 0 0 2px rgba(255, 225, 77, 1); }
+}
+.story-map-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; font-size: 0.75rem; color: var(--ink-soft); }
+.story-map-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.story-map-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
 /* ---------- 起動スプラッシュ(ロゴアニメーション) ---------- */
 .splash-screen {

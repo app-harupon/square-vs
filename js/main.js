@@ -27,8 +27,16 @@ import {
   other,
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
-import { STORY_NATIONS, resolveStoryPosition, totalStoryTerritories } from './core/story.js';
+import { STORY_NATIONS, PLAYER_NATION, findNation } from './core/story.js';
 import { createStoryGame, applyStoryVictory } from './core/storyBattle.js';
+import {
+  generateWorldMap,
+  getAttackableTiles,
+  getAllianceCandidates,
+  remainingTileCount,
+  totalTileCount,
+  simulateRivalIncursions,
+} from './core/worldMap.js';
 import { Renderer3D as Renderer } from './ui/render3d.js';
 import { InputController } from './ui/input.js';
 import { NetClient } from './net/client.js';
@@ -100,9 +108,16 @@ const turnorderChipB = $('turnorder-b');
 const turnorderResult = $('turnorder-result');
 const storyBtn = $('story-btn');
 const storyModal = $('story-modal');
-const storyNationList = $('story-nation-list');
+const storyMapGrid = $('story-map-grid');
+const storyMapLegend = $('story-map-legend');
 const storyCloseBtn = $('story-close-btn');
 const storyReserveEl = $('story-reserve');
+const storyTileModal = $('story-tile-modal');
+const storyTileTitle = $('story-tile-title');
+const storyTileDesc = $('story-tile-desc');
+const storyTileAttackBtn = $('story-tile-attack-btn');
+const storyTileAllyBtn = $('story-tile-ally-btn');
+const storyTileCancelBtn = $('story-tile-cancel-btn');
 
 const CARD_GACHA_COST = 150;
 const GENERAL_GACHA_COST = 200;
@@ -195,52 +210,118 @@ function startOnlineGameAsGuest(state) {
   enterGameScreen();
 }
 
-// ---------- ストーリーモード(『黎明の大地』国盗り合戦) ----------
-function startStoryBattle() {
-  const pos = resolveStoryPosition(profile.storyProgress);
-  if (!pos) return; // 全国家制圧済み
-  isOnlineGame = false;
-  isHost = false;
-  myId = 'A';
-  game = createStoryGame(pos.nation, profile);
-  enterGameScreen();
+// ---------- ストーリーモード(『黎明の大地』国盗り合戦・世界地図) ----------
+function ensureStoryMap() {
+  if (!profile.storyMap) {
+    profile.storyMap = generateWorldMap();
+    saveProfile(profile);
+  }
+  return profile.storyMap;
 }
 
-function buildStoryModal() {
-  storyNationList.innerHTML = '';
-  const pos = resolveStoryPosition(profile.storyProgress);
-  let clearedTerritories = profile.storyProgress;
-  STORY_NATIONS.forEach((nation) => {
-    const nationCleared = clearedTerritories >= nation.territories;
-    const isCurrent = pos && pos.nation.id === nation.id;
-    const locked = !nationCleared && !isCurrent;
-    const card = document.createElement('button');
-    card.className = 'story-nation-card' + (nationCleared ? ' cleared' : isCurrent ? ' current' : ' locked');
-    card.disabled = locked;
-    const status = nationCleared ? '✅' : isCurrent ? '⚔️' : '🔒';
-    const progressNote = nation.territories > 1
-      ? `<span>領土 ${nationCleared ? nation.territories : (isCurrent ? pos.territoryIndex : 0)}/${nation.territories}</span>`
-      : '';
-    card.innerHTML = `
-      <div class="flag" style="background:${nation.color}"></div>
-      <div class="info"><b>${nation.name}(${nation.monarch})</b><span>${nation.desc}</span>${progressNote}</div>
-      <div class="status">${status}</div>
-    `;
-    if (isCurrent) {
-      card.addEventListener('click', () => {
-        storyModal.hidden = true;
-        startStoryBattle();
-      });
+function storyOwners() {
+  return profile.storyMap.owners;
+}
+
+let selectedStoryTileIndex = null;
+
+function buildStoryMap() {
+  const map = ensureStoryMap();
+  const owners = storyOwners();
+  const alliances = profile.storyAlliances;
+  const attackable = getAttackableTiles(map, owners, alliances);
+
+  storyMapGrid.innerHTML = '';
+  for (let i = 0; i < map.tiles.length; i++) {
+    const nationId = map.tiles[i];
+    const owner = owners[i];
+    const tile = document.createElement('button');
+    tile.className = 'story-map-tile';
+    if (!nationId) {
+      tile.style.background = '#e6ebf1';
+    } else if (owner === 'player') {
+      tile.style.background = PLAYER_NATION.color;
+      tile.classList.add('player');
+    } else {
+      const nation = findNation(nationId);
+      tile.style.background = nation?.color || '#999';
+      if (alliances.includes(nationId)) tile.classList.add('allied');
+      if (attackable.has(i)) tile.classList.add('attackable');
+      else if (owner !== 'player') tile.classList.add('locked');
     }
-    storyNationList.appendChild(card);
-    clearedTerritories -= nation.territories;
-  });
+    if (nationId && owner !== 'player' && attackable.has(i)) {
+      tile.addEventListener('click', () => openStoryTileModal(i));
+    }
+    storyMapGrid.appendChild(tile);
+  }
+
+  storyMapLegend.innerHTML = `
+    <span><i style="background:${PLAYER_NATION.color}"></i>あなた(黎明)</span>
+    ${STORY_NATIONS.map((n) => `<span><i style="background:${n.color}"></i>${n.name}</span>`).join('')}
+  `;
+
   const reserve = profile.storyReserve;
   storyReserveEl.textContent = `予備兵力: 歩兵${reserve.infantry || 0} / 弓兵${reserve.archer || 0} / 騎兵${reserve.cavalry || 0}`;
 }
 
+function openStoryTileModal(tileIndex) {
+  const map = profile.storyMap;
+  const nationId = map.tiles[tileIndex];
+  const nation = findNation(nationId);
+  if (!nation) return;
+  selectedStoryTileIndex = tileIndex;
+  const owners = storyOwners();
+  const remaining = remainingTileCount(map, owners, nationId);
+  const total = totalTileCount(map, nationId);
+  storyTileTitle.textContent = `${nation.name}(${nation.monarch})`;
+  storyTileDesc.textContent = `${nation.desc} 残り領土 ${remaining}/${total}`;
+  const alreadyAllied = profile.storyAlliances.includes(nationId);
+  storyTileAllyBtn.hidden = alreadyAllied;
+  storyTileModal.hidden = false;
+}
+
+storyTileCancelBtn.addEventListener('click', () => {
+  storyTileModal.hidden = true;
+  selectedStoryTileIndex = null;
+});
+
+storyTileAllyBtn.addEventListener('click', () => {
+  const map = profile.storyMap;
+  const nationId = map.tiles[selectedStoryTileIndex];
+  if (nationId && !profile.storyAlliances.includes(nationId)) {
+    profile.storyAlliances.push(nationId);
+    saveProfile(profile);
+  }
+  storyTileModal.hidden = true;
+  selectedStoryTileIndex = null;
+  buildStoryMap();
+});
+
+storyTileAttackBtn.addEventListener('click', () => {
+  const tileIndex = selectedStoryTileIndex;
+  storyTileModal.hidden = true;
+  selectedStoryTileIndex = null;
+  storyModal.hidden = true;
+  startStoryBattle(tileIndex);
+});
+
+function startStoryBattle(tileIndex) {
+  const map = profile.storyMap;
+  const nationId = map.tiles[tileIndex];
+  const nation = findNation(nationId);
+  if (!nation) return;
+  const total = totalTileCount(map, nationId);
+  const tileTroopCount = Math.max(500, Math.round(nation.totalTroops / total));
+  isOnlineGame = false;
+  isHost = false;
+  myId = 'A';
+  game = createStoryGame(nation, tileTroopCount, profile);
+  game.storyTileIndex = tileIndex;
+  enterGameScreen();
+}
+
 storyBtn.addEventListener('click', () => {
-  buildStoryModal();
+  buildStoryMap();
   storyModal.hidden = false;
 });
 storyCloseBtn.addEventListener('click', () => {
@@ -1404,32 +1485,46 @@ function showResult() {
       saveProfile(profile);
       updateGemDisplay();
       resultDesc.textContent += ` 💎${reward}を獲得しました!`;
-      if (game.isStory) {
-        const pos = resolveStoryPosition(profile.storyProgress);
-        if (pos && pos.nation.id === game.storyNation.id) {
-          const isLastTerritory = pos.territoryIndex === pos.nation.territories - 1;
-          const absorbed = applyStoryVictory(game, profile, isLastTerritory);
-          profile.storyProgress += 1;
-          saveProfile(profile);
-          const isCampaignClear = profile.storyProgress >= totalStoryTerritories();
-          const absorbedText = Object.entries(absorbed)
-            .map(([type, n]) => `${UNIT_STATS[type].label}${n}`)
-            .join('・');
-          resultTitle.textContent = `${winnerName}を撃破!`;
-          resultDesc.textContent += absorbedText
-            ? ` 降伏兵(${absorbedText})を吸収しました。`
-            : '';
-          resultDesc.textContent += isCampaignClear
-            ? ' ついに黎明の大地を統一しました!'
-            : isLastTerritory
-              ? ` ${game.storyNation.name}を完全に平定しました!`
-              : ` ${game.storyNation.name}の別動隊を撃退しました(残り領土あり)。`;
-        }
-      }
     }
+  }
+  if (game.isStory) {
+    resultDesc.textContent += resolveStoryBattleOutcome(game, game.winner === myId, game.winner === myId ? '勝利!' : '敗北……');
   }
   resultModal.hidden = false;
   vibrate(game.winner === myId ? [40, 60, 40, 60, 80] : [200]);
+}
+
+// 合戦の勝敗を国盗り合戦の世界地図に反映する(勝敗を問わず、他国情勢の背景シミュレーションは進行する)
+function resolveStoryBattleOutcome(finishedGame, won) {
+  const map = profile.storyMap;
+  const owners = map.owners;
+  const nation = finishedGame.storyNation;
+  const tileIndex = finishedGame.storyTileIndex;
+  let text = '';
+
+  if (won) {
+    const total = totalTileCount(map, nation.id);
+    const remainingBefore = remainingTileCount(map, owners, nation.id);
+    const isLastTerritory = remainingBefore <= 1;
+    const absorbed = applyStoryVictory(finishedGame, profile, isLastTerritory);
+    owners[tileIndex] = 'player';
+    const absorbedText = Object.entries(absorbed)
+      .map(([type, n]) => `${UNIT_STATS[type].label}${n}`)
+      .join('・');
+    resultTitle.textContent = `${nation.monarch}の守備隊を撃破!`;
+    text += absorbedText ? ` 降伏兵(${absorbedText})を吸収しました。` : '';
+    text += isLastTerritory
+      ? ` ${nation.name}を完全に平定しました!`
+      : ` ${nation.name}の領土を1マス制圧しました(残り${remainingBefore - 1}/${total})。`;
+  }
+
+  const incursions = simulateRivalIncursions(map, owners, profile.storyAlliances, findNation);
+  if (incursions.length) {
+    const names = incursions.map((inc) => findNation(inc.byNation)?.name || inc.byNation).join('・');
+    text += ` その隙に${names}が領土を侵犯してきました!`;
+  }
+  saveProfile(profile);
+  return text;
 }
 
 $('restart-btn').addEventListener('click', () => {
@@ -1670,6 +1765,7 @@ function registerServiceWorker() {
     });
   }
 }
+
 
 
 
