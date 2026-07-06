@@ -47,15 +47,56 @@ function growBlob(tiles, nationId, targetSize) {
   }
 }
 
+// プレイヤーの本拠地は、必ずどこかの国と隣接するマスから配置する
+// (孤立したマスに置かれると、隣接国が1つもなく詰んでしまうため)
+function placeAdjacentToExisting(tiles, nationId, targetSize) {
+  const candidates = [];
+  for (let y = 0; y < MAP_HEIGHT; y++) {
+    for (let x = 0; x < MAP_WIDTH; x++) {
+      if (tiles[idx(x, y)]) continue;
+      const touchesNation = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+        const nx = x + dx;
+        const ny = y + dy;
+        return nx >= 0 && ny >= 0 && nx < MAP_WIDTH && ny < MAP_HEIGHT && tiles[idx(nx, ny)];
+      });
+      if (touchesNation) candidates.push([x, y]);
+    }
+  }
+  if (!candidates.length) {
+    growBlob(tiles, nationId, targetSize); // 万一隣接候補がなければ通常のブロブ生成にフォールバック
+    return;
+  }
+  const [sx, sy] = candidates[Math.floor(Math.random() * candidates.length)];
+  tiles[idx(sx, sy)] = nationId;
+  let placed = 1;
+  const frontier = [[sx, sy]];
+  const visited = new Set([`${sx},${sy}`]);
+  while (frontier.length && placed < targetSize) {
+    const [x, y] = frontier.shift();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const key = `${nx},${ny}`;
+      if (nx < 0 || ny < 0 || nx >= MAP_WIDTH || ny >= MAP_HEIGHT || visited.has(key)) continue;
+      visited.add(key);
+      if (tiles[idx(nx, ny)]) continue;
+      tiles[idx(nx, ny)] = nationId;
+      placed++;
+      frontier.push([nx, ny]);
+      if (placed >= targetSize) break;
+    }
+  }
+}
+
 // 世界地図を新規生成する(キャンペーン開始時に1回だけ呼び、プロフィールに保存して固定する)
 export function generateWorldMap() {
   const tiles = new Array(MAP_WIDTH * MAP_HEIGHT).fill(null);
-  const all = [
-    { id: PLAYER_NATION.id, size: tileCountForTroops(PLAYER_NATION.totalTroops) },
-    ...STORY_NATIONS.map((n) => ({ id: n.id, size: tileCountForTroops(n.totalTroops) })),
-  ].sort((a, b) => b.size - a.size);
+  const others = STORY_NATIONS.map((n) => ({ id: n.id, size: tileCountForTroops(n.totalTroops) }))
+    .sort((a, b) => b.size - a.size);
 
-  for (const n of all) growBlob(tiles, n.id, n.size);
+  for (const n of others) growBlob(tiles, n.id, n.size);
+  // プレイヤーの本拠地は他国配置が終わった後、必ず隣接するマスに置く
+  placeAdjacentToExisting(tiles, PLAYER_NATION.id, tileCountForTroops(PLAYER_NATION.totalTroops));
 
   const owners = tiles.map((nationId) => (nationId === PLAYER_NATION.id ? 'player' : nationId));
   return { width: MAP_WIDTH, height: MAP_HEIGHT, tiles, owners };
@@ -74,6 +115,7 @@ function neighborsOf(i) {
 }
 
 // 現在プレイヤーが領有しているマスに隣接する、まだ他国(同盟国以外)が支配しているマスの一覧
+// (無主化(中立)したマスも、隣接していれば無血で取り込める対象として含める)
 export function getAttackableTiles(map, owners, alliances) {
   const attackable = new Set();
   for (let i = 0; i < owners.length; i++) {
@@ -82,17 +124,24 @@ export function getAttackableTiles(map, owners, alliances) {
       const ownerNation = owners[n];
       if (ownerNation && ownerNation !== 'player' && !alliances.includes(ownerNation)) {
         attackable.add(n);
+      } else if (ownerNation === null && map.tiles[n]) {
+        attackable.add(n); // 大国同士の争いで無主化したマス(戦闘なしで制圧できる)
       }
     }
   }
   return attackable;
 }
 
+// 隣接マスが「無主化(中立)」しているかどうか(戦闘なしでそのまま制圧できる)
+export function isNeutralTile(map, owners, tileIndex) {
+  return owners[tileIndex] === null && !!map.tiles[tileIndex];
+}
+
 // 同盟を結べる(まだ未制圧・未同盟で、プレイヤー領土に隣接する)国の一覧
 export function getAllianceCandidates(map, owners, alliances) {
   const candidates = new Set();
   for (const tileIdx of getAttackableTiles(map, owners, alliances)) {
-    candidates.add(owners[tileIdx]);
+    if (owners[tileIdx]) candidates.add(owners[tileIdx]);
   }
   return candidates;
 }
@@ -134,4 +183,40 @@ export function simulateRivalIncursions(map, owners, alliances, nationLookup) {
     }
   }
   return capturedTiles;
+}
+
+// 難易度による大国同士の動き(ヘル: 大国同盟が弱小国を飲み込む / ソフト: 大国同士が争って弱体化する)
+export function simulateGreatPowerDynamics(map, owners, worldEvent) {
+  if (worldEvent !== 'ally_and_crush' && worldEvent !== 'infighting') return null;
+  if (Math.random() > 0.35) return null; // 毎回起きるわけではない、あくまで時々の出来事
+
+  const strength = {};
+  for (const o of owners) {
+    if (o && o !== 'player') strength[o] = (strength[o] || 0) + 1;
+  }
+  const ranked = Object.keys(strength).sort((a, b) => strength[b] - strength[a]);
+  if (ranked.length < 2) return null;
+  const [big1, big2] = ranked;
+
+  if (worldEvent === 'ally_and_crush') {
+    // 二大国が結託し、より弱い国から1マス奪って取り込む(大国がどんどん肥大化していく)
+    const victim = ranked.slice(2)[Math.floor(Math.random() * Math.max(1, ranked.length - 2))];
+    if (!victim) return null;
+    const victimTiles = [];
+    for (let i = 0; i < owners.length; i++) if (owners[i] === victim) victimTiles.push(i);
+    if (!victimTiles.length) return null;
+    const tile = victimTiles[Math.floor(Math.random() * victimTiles.length)];
+    const conqueror = Math.random() < 0.5 ? big1 : big2;
+    owners[tile] = conqueror;
+    return { type: 'ally_and_crush', victim, conqueror, tileIndex: tile };
+  }
+
+  // infighting: 二大国が争い、一方が1マスを失う(そのマスは無主化し、誰でも無血で入り込める)
+  const loser = Math.random() < 0.5 ? big1 : big2;
+  const loserTiles = [];
+  for (let i = 0; i < owners.length; i++) if (owners[i] === loser) loserTiles.push(i);
+  if (!loserTiles.length) return null;
+  const tile = loserTiles[Math.floor(Math.random() * loserTiles.length)];
+  owners[tile] = null;
+  return { type: 'infighting', loser, winner: loser === big1 ? big2 : big1, tileIndex: tile };
 }

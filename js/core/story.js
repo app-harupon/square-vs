@@ -4,6 +4,21 @@
 
 import { UNIT_TYPES } from './units.js';
 
+// 難易度(下からソフト・イージー・ノーマル・ハード・ヘル)。
+// scoreMultiplier: 敵兵力(1マスあたりの駐留軍規模)にかかる倍率。
+// worldEvent: 背景シミュレーションでの大国同士の動き方('ally_and_crush'|'infighting'|null)
+export const STORY_DIFFICULTIES = [
+  { id: 'soft', name: 'ソフト', scoreMultiplier: 0.5, worldEvent: 'infighting', desc: '大国同士が争い合い、その隙にどんどん攻め込める。敵兵力も控えめ。' },
+  { id: 'easy', name: 'イージー', scoreMultiplier: 0.8, worldEvent: null, desc: '敵兵力は控えめ。世界情勢も比較的穏やか。' },
+  { id: 'normal', name: 'ノーマル', scoreMultiplier: 1.0, worldEvent: null, desc: '標準的な難易度。' },
+  { id: 'hard', name: 'ハード', scoreMultiplier: 1.3, worldEvent: null, desc: '敵兵力が強化される。油断は禁物。' },
+  { id: 'hell', name: 'ヘル', scoreMultiplier: 1.7, worldEvent: 'ally_and_crush', desc: '大国同士が同盟を組み、弱小国をどんどん飲み込んでいく。敵兵力も凶悪。' },
+];
+
+export function findDifficulty(id) {
+  return STORY_DIFFICULTIES.find((d) => d.id === id) || STORY_DIFFICULTIES[2];
+}
+
 // プレイヤーの故国。最初の戦力構成の元になる(長槍歩兵のみの小さな軍)
 export const PLAYER_NATION = {
   id: 'reimei',

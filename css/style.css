@@ -457,6 +457,27 @@ body {
 .story-map-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .story-map-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
+.story-difficulty-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.story-difficulty-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: #f5f6fa;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  color: var(--ink);
+}
+.story-difficulty-card b { font-size: 1rem; }
+.story-difficulty-card span { font-size: 0.78rem; color: var(--ink-soft); }
+.story-difficulty-card.soft { background: linear-gradient(135deg, #eafce0, #d3f5da); }
+.story-difficulty-card.easy { background: linear-gradient(135deg, #e0f0ff, #cfe4ff); }
+.story-difficulty-card.normal { background: linear-gradient(135deg, #fff3d6, #ffe4a3); }
+.story-difficulty-card.hard { background: linear-gradient(135deg, #ffe0cf, #ffc9a3); }
+.story-difficulty-card.hell { background: linear-gradient(135deg, #ffd0d0, #ff9a9a); }
+
 /* ---------- 起動スプラッシュ(ロゴアニメーション) ---------- */
 .splash-screen {
   position: fixed;

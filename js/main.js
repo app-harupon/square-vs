@@ -27,7 +27,7 @@ import {
   other,
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
-import { STORY_NATIONS, PLAYER_NATION, findNation } from './core/story.js';
+import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty } from './core/story.js';
 import { createStoryGame, applyStoryVictory } from './core/storyBattle.js';
 import {
   generateWorldMap,
@@ -36,6 +36,8 @@ import {
   remainingTileCount,
   totalTileCount,
   simulateRivalIncursions,
+  simulateGreatPowerDynamics,
+  isNeutralTile,
 } from './core/worldMap.js';
 import { Renderer3D as Renderer } from './ui/render3d.js';
 import { InputController } from './ui/input.js';
@@ -107,6 +109,8 @@ const turnorderChipA = $('turnorder-a');
 const turnorderChipB = $('turnorder-b');
 const turnorderResult = $('turnorder-result');
 const storyBtn = $('story-btn');
+const storyDifficultyModal = $('story-difficulty-modal');
+const storyDifficultyList = $('story-difficulty-list');
 const storyModal = $('story-modal');
 const storyMapGrid = $('story-map-grid');
 const storyMapLegend = $('story-map-legend');
@@ -250,7 +254,12 @@ function buildStoryMap() {
       else if (owner !== 'player') tile.classList.add('locked');
     }
     if (nationId && owner !== 'player' && attackable.has(i)) {
-      tile.addEventListener('click', () => openStoryTileModal(i));
+      if (isNeutralTile(map, owners, i)) {
+        tile.title = '無主化した土地(戦闘なしでそのまま制圧できます)';
+        tile.addEventListener('click', () => claimNeutralTile(i));
+      } else {
+        tile.addEventListener('click', () => openStoryTileModal(i));
+      }
     }
     storyMapGrid.appendChild(tile);
   }
@@ -278,6 +287,13 @@ function openStoryTileModal(tileIndex) {
   const alreadyAllied = profile.storyAlliances.includes(nationId);
   storyTileAllyBtn.hidden = alreadyAllied;
   storyTileModal.hidden = false;
+}
+
+// 大国同士の争いで無主化した土地は、戦闘なしでそのまま制圧できる
+function claimNeutralTile(tileIndex) {
+  profile.storyMap.owners[tileIndex] = 'player';
+  saveProfile(profile);
+  buildStoryMap();
 }
 
 storyTileCancelBtn.addEventListener('click', () => {
@@ -311,7 +327,8 @@ function startStoryBattle(tileIndex) {
   const nation = findNation(nationId);
   if (!nation) return;
   const total = totalTileCount(map, nationId);
-  const tileTroopCount = Math.max(500, Math.round(nation.totalTroops / total));
+  const difficulty = findDifficulty(profile.storyDifficulty);
+  const tileTroopCount = Math.max(500, Math.round((nation.totalTroops / total) * difficulty.scoreMultiplier));
   isOnlineGame = false;
   isHost = false;
   myId = 'A';
@@ -320,7 +337,29 @@ function startStoryBattle(tileIndex) {
   enterGameScreen();
 }
 
+function buildStoryDifficultyList() {
+  storyDifficultyList.innerHTML = '';
+  for (const diff of STORY_DIFFICULTIES) {
+    const card = document.createElement('button');
+    card.className = `story-difficulty-card ${diff.id}`;
+    card.innerHTML = `<b>${diff.name}</b><span>${diff.desc}</span>`;
+    card.addEventListener('click', () => {
+      profile.storyDifficulty = diff.id;
+      saveProfile(profile);
+      storyDifficultyModal.hidden = true;
+      buildStoryMap();
+      storyModal.hidden = false;
+    });
+    storyDifficultyList.appendChild(card);
+  }
+}
+
 storyBtn.addEventListener('click', () => {
+  if (!profile.storyDifficulty) {
+    buildStoryDifficultyList();
+    storyDifficultyModal.hidden = false;
+    return;
+  }
   buildStoryMap();
   storyModal.hidden = false;
 });
@@ -1523,6 +1562,19 @@ function resolveStoryBattleOutcome(finishedGame, won) {
     const names = incursions.map((inc) => findNation(inc.byNation)?.name || inc.byNation).join('・');
     text += ` その隙に${names}が領土を侵犯してきました!`;
   }
+
+  const difficulty = findDifficulty(profile.storyDifficulty);
+  const powerEvent = simulateGreatPowerDynamics(map, owners, difficulty.worldEvent);
+  if (powerEvent?.type === 'ally_and_crush') {
+    const victimName = findNation(powerEvent.victim)?.name || powerEvent.victim;
+    const conquerorName = findNation(powerEvent.conqueror)?.name || powerEvent.conqueror;
+    text += ` 世界情勢: ${conquerorName}が${victimName}の領土を飲み込みました。`;
+  } else if (powerEvent?.type === 'infighting') {
+    const loserName = findNation(powerEvent.loser)?.name || powerEvent.loser;
+    const winnerName = findNation(powerEvent.winner)?.name || powerEvent.winner;
+    text += ` 世界情勢: ${winnerName}と${loserName}が争い、${loserName}の領土の一部が無主地になりました。`;
+  }
+
   saveProfile(profile);
   return text;
 }

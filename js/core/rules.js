@@ -63,7 +63,7 @@ function weightedType(ratios) {
 }
 
 // 兵種構成比率・総兵力から出撃部隊テンプレートを組み立てる(ストーリーモード専用の汎用ユーティリティ)
-export function generateNationSquadTemplates(ownerId, totalTroops, compositionRatios, generalType, profile = null) {
+export function generateNationSquadTemplates(ownerId, totalTroops, compositionRatios, generalType, profile = null, viceGeneralCount = 0) {
   const general = createSquad({ ownerId, type: generalType, isGeneral: true });
   if (profile?.unlockedGenerals?.includes(generalType)) {
     general.stats.rank += GENERAL_UPGRADE_BONUS;
@@ -71,7 +71,12 @@ export function generateNationSquadTemplates(ownerId, totalTroops, compositionRa
   }
   const list = [general];
 
-  const remainingSteps = Math.max(0, Math.round((totalTroops - INITIAL_SOLDIERS) / INITIAL_SOLDIERS));
+  for (let i = 0; i < viceGeneralCount; i++) {
+    list.push(createSquad({ ownerId, type: weightedType(compositionRatios), isViceGeneral: true }));
+  }
+
+  const reservedForCommand = INITIAL_SOLDIERS * (1 + viceGeneralCount);
+  const remainingSteps = Math.max(0, Math.round((totalTroops - reservedForCommand) / INITIAL_SOLDIERS));
   const counts = { [UNIT_TYPES.INFANTRY]: 0, [UNIT_TYPES.ARCHER]: 0, [UNIT_TYPES.CAVALRY]: 0 };
   for (let i = 0; i < remainingSteps; i++) {
     counts[weightedType(compositionRatios)] += INITIAL_SOLDIERS;

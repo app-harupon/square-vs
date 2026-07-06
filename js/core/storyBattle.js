@@ -15,6 +15,14 @@ function dominantType(ratios) {
   , UNIT_TYPES.INFANTRY);
 }
 
+// 合戦の規模(駐留軍の人数)に応じて副将の数を決める。大規模な合戦ほど武将の数が増える
+function viceGeneralCountFor(tileTroopCount) {
+  if (tileTroopCount >= 4000) return 3;
+  if (tileTroopCount >= 2500) return 2;
+  if (tileTroopCount >= 1200) return 1;
+  return 0;
+}
+
 function generatePlayerSquadTemplates(ownerId, profile) {
   const reserve = profile?.storyReserve || {};
   const hasReserve = Object.values(reserve).some((v) => v > 0);
@@ -46,7 +54,7 @@ export function createStoryGame(nation, tileTroopCount, profile = null) {
     },
     deployQueue: {
       A: generatePlayerSquadTemplates('A', profile),
-      B: generateNationSquadTemplates('B', tileTroopCount, nation.composition, dominantType(nation.composition), profile),
+      B: generateNationSquadTemplates('B', tileTroopCount, nation.composition, dominantType(nation.composition), profile, viceGeneralCountFor(tileTroopCount)),
     },
     phase: 'deploy',
     currentPlayer: 'A',
