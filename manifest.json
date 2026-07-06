@@ -1,0 +1,17 @@
+{
+  "name": "Square VS - 兵数制ストラテジー",
+  "short_name": "Square VS",
+  "description": "兵力の分割・再配分を駆使する1対1ターン制陣取りゲーム",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#eaf4ff",
+  "theme_color": "#7fb8ff",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

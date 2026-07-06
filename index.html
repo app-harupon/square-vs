@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Square VS - 兵数制ストラテジー</title>
+<meta name="theme-color" content="#7fb8ff" />
+<meta name="description" content="兵力の分割・再配分を駆使する1対1ターン制陣取りゲーム Square VS" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Square VS" />
+<meta name="format-detection" content="telephone=no" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== 起動スプラッシュ(ロゴアニメーション) ===== -->
+  <section id="splash-screen" class="splash-screen">
+    <div class="splash-clash">
+      <div class="splash-square blue"></div>
+      <div class="splash-square red"></div>
+      <div class="splash-vs">VS</div>
+    </div>
+    <h1 class="splash-title">Square <span class="vs-accent">VS</span></h1>
+    <p class="splash-hint">タップしてスキップ</p>
+  </section>
+
+  <!-- ===== メニュー画面 ===== -->
+  <section id="menu-screen" class="screen" hidden>
+    <div class="menu-card">
+      <div class="gem-bar">
+        <span id="gem-count">💎 0</span>
+        <button id="shop-btn" class="btn btn-secondary btn-small">🛒 ショップ</button>
+      </div>
+      <h1 class="logo">⚔️ Square VS</h1>
+      <p class="tagline">兵を分け、束ね、地を制す。</p>
+      <div id="mode-list" class="mode-list"></div>
+      <button id="story-btn" class="btn btn-secondary">📖 ストーリーモード</button>
+      <button id="online-btn" class="btn btn-secondary">🌐 オンライン対戦</button>
+      <button id="rules-btn" class="btn btn-ghost">遊び方</button>
+      <button id="install-btn" class="btn btn-secondary" hidden>📲 ホーム画面に追加</button>
+    </div>
+  </section>
+
+  <!-- ===== ゲーム画面 ===== -->
+  <section id="game-screen" class="screen" hidden>
+    <header id="topbar">
+      <button id="menu-btn" class="icon-btn" title="メニュー">☰</button>
+      <div id="turn-indicator" class="turn-indicator">配置フェーズ</div>
+      <button id="log-btn" class="icon-btn" title="戦況ログ">📜</button>
+    </header>
+
+    <div id="canvas-wrap">
+      <div id="view-controls" class="view-controls">
+        <button id="zoom-in-btn" class="view-btn" title="拡大">➕</button>
+        <button id="zoom-out-btn" class="view-btn" title="縮小">➖</button>
+        <button id="rotate-left-btn" class="view-btn" title="左回転">↺</button>
+        <button id="rotate-right-btn" class="view-btn" title="右回転">↻</button>
+        <button id="tilt-up-btn" class="view-btn" title="見下ろす角度を強く">🔼</button>
+        <button id="tilt-down-btn" class="view-btn" title="真上から見る">🔽</button>
+      </div>
+      <canvas id="board-canvas"></canvas>
+      <div id="squad-info" class="squad-info" hidden></div>
+      <div id="turn-banner" class="turn-banner"></div>
+    </div>
+
+    <div id="deploy-drag-ghost" class="deploy-drag-ghost" hidden></div>
+
+    <footer id="bottombar">
+      <div id="deploy-panel" class="panel" hidden>
+        <p class="hint deploy-hint">駒をつかんで盤面までドラッグすると配置できます。配置済みの駒も、つかんで動かしたり盤面外にドラッグすると配置し直せます</p>
+        <div id="deploy-list" class="deploy-list"></div>
+        <div class="panel-actions">
+          <button id="deploy-undo-btn" class="btn btn-action" disabled>↩️ 1つ戻る</button>
+          <button id="auto-deploy-btn" class="btn btn-secondary">ランダム自動配置</button>
+          <button id="finish-deploy-btn" class="btn btn-primary">配置完了</button>
+        </div>
+      </div>
+
+      <div id="battle-panel" class="panel" hidden>
+        <div id="card-hand" class="card-hand"></div>
+        <div class="panel-actions">
+          <button id="split-btn" class="btn btn-action" disabled>✂️ 分隊</button>
+          <button id="shoot-btn" class="btn btn-action" disabled>🏹 射撃</button>
+          <button id="card-btn" class="btn btn-action" disabled>🎴 カード</button>
+          <button id="battle-undo-btn" class="btn btn-action" disabled>↩️ 1つ戻る</button>
+          <button id="cancel-btn" class="btn btn-ghost" disabled>選択解除</button>
+          <button id="end-turn-btn" class="btn btn-primary">ターン終了</button>
+        </div>
+        <button id="surrender-btn" class="btn btn-danger-ghost">降伏する</button>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ===== 戦闘結果ポップアップ ===== -->
+  <div id="combat-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2 id="combat-title">戦闘結果</h2>
+      <div id="combat-body" class="combat-body"></div>
+      <button id="combat-close-btn" class="btn btn-primary">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ===== 勝敗画面 ===== -->
+  <div id="result-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2 id="result-title">決着!</h2>
+      <p id="result-desc"></p>
+      <button id="restart-btn" class="btn btn-primary">メニューに戻る</button>
+    </div>
+  </div>
+
+  <!-- ===== ログドロワー ===== -->
+  <div id="log-drawer" class="drawer" hidden>
+    <div class="drawer-header">
+      <span>戦況ログ</span>
+      <button id="log-close-btn" class="icon-btn">✕</button>
+    </div>
+    <div id="log-list" class="log-list"></div>
+  </div>
+
+  <!-- ===== 分隊モーダル ===== -->
+  <div id="split-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2>分隊</h2>
+      <p>兵を2隊に分けます</p>
+      <div class="split-row">
+        <span id="split-a-label">A隊: 50</span>
+        <input id="split-slider" type="range" min="10" max="90" step="1" value="50" />
+        <span id="split-b-label">B隊: 50</span>
+      </div>
+      <p class="hint">分割後、隣接する空きマスをタップして新部隊の行き先を選んでください。</p>
+      <div class="panel-actions">
+        <button id="split-cancel-btn" class="btn btn-ghost">キャンセル</button>
+        <button id="split-confirm-btn" class="btn btn-primary">行き先を選ぶ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 配置人数の選択 ===== -->
+  <div id="deploy-amount-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2>配置する人数</h2>
+      <p class="hint">このマスに配置する人数を100人単位で選んでください(残りは配置待ちに残ります)</p>
+      <div class="split-row">
+        <input id="deploy-amount-slider" type="range" min="100" max="500" step="100" value="500" />
+        <span id="deploy-amount-label">500人</span>
+      </div>
+      <div class="panel-actions">
+        <button id="deploy-amount-cancel-btn" class="btn btn-ghost">キャンセル</button>
+        <button id="deploy-amount-confirm-btn" class="btn btn-primary">配置する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 確認ダイアログ ===== -->
+  <div id="confirm-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <p id="confirm-message"></p>
+      <div class="panel-actions">
+        <button id="confirm-no-btn" class="btn btn-ghost">キャンセル</button>
+        <button id="confirm-yes-btn" class="btn btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ルール説明 ===== -->
+  <div id="rules-modal" class="modal-overlay" hidden>
+    <div class="modal-card modal-scroll">
+      <h2>遊び方</h2>
+      <div class="rules-text">
+        <p>① 自分の部隊をタップして選択(移動・攻撃できるマスが光ります)</p>
+        <p>② 行き先や敵部隊をタップして、移動・突撃・射撃を実行</p>
+        <p>③ 「分隊」で兵を分けて多方面に展開。同じ兵種の隣接部隊にくっつけるだけで自動的に統合されます</p>
+        <p>④ 林にいる部隊は敵から種類が見えません(位置だけは常に見えます)</p>
+        <p>⑤ 大将を討ち取れば勝利!全部隊が行動したら自動で相手の番になります</p>
+        <p>歩兵&gt;騎兵&gt;弓兵&gt;歩兵 の三すくみに注意。丘・山は防御有利、林からの奇襲は一度きり効果的です。</p>
+      </div>
+      <button id="rules-close-btn" class="btn btn-primary">わかった</button>
+    </div>
+  </div>
+
+  <!-- ===== ショップ ===== -->
+  <div id="shop-modal" class="modal-overlay" hidden>
+    <div class="modal-card modal-scroll">
+      <h2>🛒 ショップ</h2>
+      <p class="hint">ジェムを使ってプレミアムなカード・武将をガチャで解放できます(実際の課金は発生しません)</p>
+      <div class="gem-bar"><span id="shop-gem-count">💎 0</span></div>
+
+      <div class="shop-section">
+        <h3>🎴 カードガチャ <span class="cost">近日公開</span></h3>
+        <p class="hint">歩兵・弓兵・騎兵・大将それぞれの特別なカードが手に入ります</p>
+        <button id="card-gacha-btn" class="btn btn-primary" disabled>近日公開</button>
+        <div id="card-owned-list" class="owned-list"></div>
+      </div>
+
+      <div class="shop-section">
+        <h3>👑 武将ガチャ <span class="cost">近日公開</span></h3>
+        <p class="hint">兵種を名将化すると、その兵種が大将になった時ランク+1されます</p>
+        <button id="general-gacha-btn" class="btn btn-primary" disabled>近日公開</button>
+        <div id="general-owned-list" class="owned-list"></div>
+      </div>
+
+      <button id="shop-close-btn" class="btn btn-ghost">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ===== ガチャ結果 ===== -->
+  <div id="gacha-result-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2>🎉 獲得!</h2>
+      <div id="gacha-result-body"></div>
+      <button id="gacha-result-close-btn" class="btn btn-primary">OK</button>
+    </div>
+  </div>
+
+  <!-- ===== ログインボーナス ===== -->
+  <div id="login-bonus-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2>📅 ログインボーナス</h2>
+      <p id="login-bonus-text"></p>
+      <button id="login-bonus-close-btn" class="btn btn-primary">受け取る</button>
+    </div>
+  </div>
+
+  <!-- ===== オンライン対戦 ===== -->
+  <div id="online-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2>🌐 オンライン対戦(カジュアル)</h2>
+
+      <div id="online-setup-view">
+        <p class="hint">対戦するモードを選んでください</p>
+        <div id="online-mode-list" class="mode-list mode-list-compact"></div>
+        <button id="online-auto-match-btn" class="btn btn-primary">🎲 自動マッチング</button>
+        <div class="split-row">
+          <input id="online-code-input" type="text" maxlength="8" placeholder="合言葉(例: sakura)" />
+          <button id="online-code-btn" class="btn btn-action">🔑 合言葉で対戦</button>
+        </div>
+        <p id="online-error-text" class="hint online-error" hidden></p>
+      </div>
+
+      <div id="online-waiting-view" hidden>
+        <p class="hint">対戦相手を探しています…</p>
+        <button id="online-cancel-btn" class="btn btn-ghost">やめる</button>
+      </div>
+
+      <button id="online-close-btn" class="btn btn-ghost">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ===== 先攻・後攻抽選 ===== -->
+  <div id="turnorder-modal" class="modal-overlay" hidden>
+    <div class="modal-card turnorder-card">
+      <h2>先攻・後攻抽選</h2>
+      <div class="turnorder-roulette">
+        <div id="turnorder-a" class="turnorder-chip a">あなた</div>
+        <div class="turnorder-vs">VS</div>
+        <div id="turnorder-b" class="turnorder-chip b">相手</div>
+      </div>
+      <p id="turnorder-result" class="turnorder-result"></p>
+    </div>
+  </div>
+
+  <!-- ===== ストーリーモード(黎明の大地・国盗り合戦) ===== -->
+  <div id="story-modal" class="modal-overlay" hidden>
+    <div class="modal-card modal-scroll">
+      <h2>📖 黎明の大地 - 国盗り合戦</h2>
+      <p class="hint">黎明の国のノアとして、9つの国を順に攻め落としていきましょう。討ち取った敵兵は兵種そのままに予備兵力として編成できます。</p>
+      <p id="story-reserve" class="hint"></p>
+      <div id="story-nation-list" class="story-nation-list"></div>
+      <button id="story-close-btn" class="btn btn-ghost">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ===== 相手切断通知 ===== -->
+  <div id="peer-left-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2>接続が切れました</h2>
+      <p>対戦相手との接続が切断されました。</p>
+      <button id="peer-left-close-btn" class="btn btn-primary">メニューに戻る</button>
+    </div>
+  </div>
+
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
