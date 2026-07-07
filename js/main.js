@@ -198,6 +198,7 @@ let isHost = false;
 let onlineSelectedMode = 'easy';
 let deployReady = { A: false, B: false };
 let combatModalFromPeer = false;
+let combatModalResolve = null; // CPUの攻撃結果を表示中、プレイヤーが閉じるまでターン進行を止めておくためのPromise resolve
 
 // ---------- 画面遷移 ----------
 function showScreen(name) {
@@ -622,7 +623,7 @@ function refreshDeployUI() {
   deployList.innerHTML = '';
   game.deployQueue[myId].forEach((squad, idx) => {
     const chip = document.createElement('div');
-    chip.className = 'deploy-chip' + (squad.isGeneral ? ' general' : squad.isViceGeneral ? ' vice-general' : '') + (idx === selectedDeployIndex ? ' selected' : '');
+    chip.className = 'deploy-chip' + (squad.isGeneral ? ' general' : squad.isViceGeneral ? ' vice-general' : squad.isElite ? ' elite' : '') + (idx === selectedDeployIndex ? ' selected' : '');
     let icon = squad.stats.icon;
     let label = squad.stats.label;
     if (squad.isGeneral) {
@@ -631,6 +632,9 @@ function refreshDeployUI() {
     } else if (squad.isViceGeneral) {
       icon = `🎖️${squad.stats.icon}`;
       label = `副将(${squad.stats.label})`;
+    } else if (squad.isElite) {
+      icon = `⭐${squad.stats.icon}`;
+      label = `精鋭${squad.stats.label}`;
     }
     chip.innerHTML = `<span class="icon">${icon}</span><span>${label}</span><span class="count">${squad.count}人</span>`;
     chip.addEventListener('pointerdown', (e) => onDeployChipPointerDown(idx, e));
@@ -678,8 +682,8 @@ function onDeployChipPointerDown(idx, e) {
   if (!squad) return;
   deployDrag = {
     templateIndex: idx,
-    icon: squad.isGeneral ? `👑${squad.stats.icon}` : squad.isViceGeneral ? `🎖️${squad.stats.icon}` : squad.stats.icon,
-    label: squad.isGeneral ? `大将(${squad.stats.label})` : squad.isViceGeneral ? `副将(${squad.stats.label})` : squad.stats.label,
+    icon: squad.isGeneral ? `👑${squad.stats.icon}` : squad.isViceGeneral ? `🎖️${squad.stats.icon}` : squad.isElite ? `⭐${squad.stats.icon}` : squad.stats.icon,
+    label: squad.isGeneral ? `大将(${squad.stats.label})` : squad.isViceGeneral ? `副将(${squad.stats.label})` : squad.isElite ? `精鋭${squad.stats.label}` : squad.stats.label,
     startX: e.clientX,
     startY: e.clientY,
     moved: false,
@@ -987,9 +991,13 @@ function showCardCutin(card) {
   clearTimeout(cardCutinTimer);
   cardCutinTimer = setTimeout(() => {
     cardCutin.hidden = true;
-  }, 900);
+  }, 1900);
   vibrate(30);
 }
+cardCutin.addEventListener('pointerdown', () => {
+  clearTimeout(cardCutinTimer);
+  cardCutin.hidden = true;
+});
 
 // ---------- マスの説明 ----------
 const TERRAIN_INFO = {
@@ -1019,6 +1027,7 @@ function updateSquadInfoPanel() {
     let rankPrefix = '';
     if (s.isGeneral) rankPrefix = `👑 ${s.isEliteGeneral ? '名将' : '大将'} `;
     else if (s.isViceGeneral) rankPrefix = '🎖️ 副将 ';
+    else if (s.isElite) rankPrefix = '⭐ 精鋭 ';
     const groupNote = selection.group.length > 1 ? `<div class="hint">他${selection.group.length - 1}部隊とまとめて移動中</div>` : '';
     squadInfoEl.innerHTML = `
       <b>${rankPrefix}${s.stats.icon} ${s.stats.label}${s.ownerId !== myId ? '(敵)' : ''}</b>
@@ -1575,9 +1584,21 @@ function showCombatModal(c) {
   vibrate(c.defenderDied || c.attackerDied ? [30, 40, 30] : 20);
 }
 
+// CPU(相手)からの攻撃結果を表示し、プレイヤーが閉じるまでターン進行を待たせる
+function showCombatModalAndWait(c) {
+  return new Promise((resolve) => {
+    combatModalResolve = resolve;
+    showCombatModal(c);
+  });
+}
+
 $('combat-close-btn').addEventListener('click', () => {
   combatModal.hidden = true;
-  if (combatModalFromPeer) afterPeerSync();
+  if (combatModalResolve) {
+    const resolve = combatModalResolve;
+    combatModalResolve = null;
+    resolve();
+  } else if (combatModalFromPeer) afterPeerSync();
   else afterPlayerAction();
 });
 
@@ -1603,12 +1624,20 @@ async function runCpuTurn() {
   cpuTurnRunning = true;
   let status = 'acted';
   while (status !== 'ended' && game.phase === 'battle' && game.currentPlayer === 'B') {
+    const prevCombat = game.lastCombat;
     status = cpuStepTurn(game, renderer, 'B');
     refreshDeployUI();
     render();
+    const isNewCombat = !!game.lastCombat && game.lastCombat !== prevCombat;
+    if (isNewCombat) {
+      // 相手からの攻撃結果もプレイヤーの攻撃時と同様に表示し、閉じるまでターンを進めない
+      await showCombatModalAndWait(game.lastCombat);
+    }
     if (game.phase === 'over') break;
-    if (status === 'acted') await sleep(500);
-    else if (status === 'passed') await sleep(80);
+    if (!isNewCombat) {
+      if (status === 'acted') await sleep(500);
+      else if (status === 'passed') await sleep(80);
+    }
   }
   cpuTurnRunning = false;
   if (game.phase === 'over') showResult();

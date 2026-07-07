@@ -1,7 +1,7 @@
 // ストーリーモード(『黎明の大地』)専用のゲーム開始・戦後処理ロジック。
 // core/rules.js の汎用部品を使いつつ、国家データ(story.js)と組み合わせる橋渡し役。
 import { generateTerrain } from './terrain.js';
-import { UNIT_TYPES, initialHand } from './units.js';
+import { UNIT_TYPES, initialHand, ELITE_CHANCE } from './units.js';
 import { generateNationSquadTemplates } from './rules.js';
 import { createSquad } from './squad.js';
 import { PLAYER_NATION } from './story.js';
@@ -45,7 +45,7 @@ function generatePlayerSquadTemplates(ownerId, profile) {
   if (profile?.unlockedGenerals?.includes(UNIT_TYPES.INFANTRY)) general.isEliteGeneral = true;
   const list = [general];
   for (const type of Object.values(UNIT_TYPES)) {
-    if (reserve[type] > 0) list.push(createSquad({ ownerId, type, count: reserve[type] }));
+    if (reserve[type] > 0) list.push(createSquad({ ownerId, type, isElite: Math.random() < ELITE_CHANCE, count: reserve[type] }));
   }
   return list;
 }

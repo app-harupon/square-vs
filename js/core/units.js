@@ -53,6 +53,10 @@ export const GENERAL_COMBAT_BONUS = 3;
 export const VICE_GENERAL_RANK_BONUS = 1;
 export const VICE_GENERAL_COMBAT_BONUS = 2;
 
+// 一般部隊が精鋭兵になる確率とそのランクボーナス(配置テンプレート生成時に1回だけ判定する)
+export const ELITE_CHANCE = 0.1;
+export const ELITE_RANK_BONUS = 1;
+
 // --- 特殊カード ---
 // effect: 'shield' | 'rapid' | 'charge' | 'inspire'
 export const CARD_DEFS = {

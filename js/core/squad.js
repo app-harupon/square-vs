@@ -3,6 +3,7 @@ import {
   INITIAL_SOLDIERS,
   GENERAL_RANK_BONUS,
   VICE_GENERAL_RANK_BONUS,
+  ELITE_RANK_BONUS,
   MAX_SQUAD_SIZE,
 } from './units.js';
 
@@ -11,9 +12,9 @@ function nextId() {
   return `sq${uidCounter++}`;
 }
 
-export function createSquad({ ownerId, type, isGeneral = false, isViceGeneral = false, x = -1, y = -1, count = INITIAL_SOLDIERS }) {
+export function createSquad({ ownerId, type, isGeneral = false, isViceGeneral = false, isElite = false, x = -1, y = -1, count = INITIAL_SOLDIERS }) {
   const baseStats = UNIT_STATS[type];
-  const rankBonus = isGeneral ? GENERAL_RANK_BONUS : isViceGeneral ? VICE_GENERAL_RANK_BONUS : 0;
+  const rankBonus = (isGeneral ? GENERAL_RANK_BONUS : isViceGeneral ? VICE_GENERAL_RANK_BONUS : 0) + (isElite ? ELITE_RANK_BONUS : 0);
   const stats = rankBonus ? { ...baseStats, rank: baseStats.rank + rankBonus } : { ...baseStats };
   return {
     id: nextId(),
@@ -22,6 +23,7 @@ export function createSquad({ ownerId, type, isGeneral = false, isViceGeneral = 
     baseType: type,
     isGeneral,
     isViceGeneral,
+    isElite,
     stats,
     count,
     x,
@@ -53,6 +55,7 @@ export function canMerge(a, b) {
     !b.isGeneral &&
     !a.isViceGeneral &&
     !b.isViceGeneral &&
+    !!a.isElite === !!b.isElite &&
     a.alive &&
     b.alive &&
     a.count + b.count <= MAX_SQUAD_SIZE

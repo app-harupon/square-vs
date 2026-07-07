@@ -6,6 +6,7 @@ import {
   INITIAL_SOLDIERS,
   MAX_SQUAD_SIZE,
   GENERAL_UPGRADE_BONUS,
+  ELITE_CHANCE,
 } from './units.js';
 import { createSquad, canSplit, canMerge } from './squad.js';
 import {
@@ -46,7 +47,7 @@ export function generateSquadTemplates(mode, ownerId, profile = null) {
   }
   for (const type of Object.values(UNIT_TYPES)) {
     if (counts[type] > 0) {
-      list.push(createSquad({ ownerId, type, count: counts[type] }));
+      list.push(createSquad({ ownerId, type, isElite: Math.random() < ELITE_CHANCE, count: counts[type] }));
     }
   }
   return list;
@@ -83,7 +84,7 @@ export function generateNationSquadTemplates(ownerId, totalTroops, compositionRa
   }
   for (const type of Object.values(UNIT_TYPES)) {
     if (counts[type] > 0) {
-      list.push(createSquad({ ownerId, type, count: counts[type] }));
+      list.push(createSquad({ ownerId, type, isElite: Math.random() < ELITE_CHANCE, count: counts[type] }));
     }
   }
   return list;
@@ -155,7 +156,7 @@ export function placeSquad(state, playerId, templateIndex, x, y, amount = null) 
   if (placeAmount <= 0 || placeAmount > template.count || placeAmount > MAX_SQUAD_SIZE) return false;
 
   if (placeAmount < template.count) {
-    const placed = createSquad({ ownerId: playerId, type: template.type, x, y, count: placeAmount });
+    const placed = createSquad({ ownerId: playerId, type: template.type, isElite: template.isElite, x, y, count: placeAmount });
     state.squads.push(placed);
     template.count -= placeAmount;
     return true;
@@ -352,7 +353,7 @@ export function splitSquad(state, squad, amount, destX, destY) {
   const terrain = state.grid[destY][destX].terrain;
   if (terrain === TERRAIN.WATER) return null;
 
-  const newSquad = createSquad({ ownerId: squad.ownerId, type: squad.type, x: destX, y: destY, count: amount });
+  const newSquad = createSquad({ ownerId: squad.ownerId, type: squad.type, isElite: squad.isElite, x: destX, y: destY, count: amount });
   newSquad.actedThisTurn = true;
   squad.count -= amount;
   squad.actedThisTurn = true;
@@ -438,6 +439,7 @@ export function playCard(state, playerId, squad, cardUid) {
 function squadLabel(squad) {
   if (squad.isGeneral) return squad.isEliteGeneral ? '★名将' : '★大将';
   if (squad.isViceGeneral) return '☆副将';
+  if (squad.isElite) return '精鋭' + squad.stats.label;
   return squad.stats.label;
 }
 
