@@ -1,10 +1,10 @@
 // ストーリーモード(『黎明の大地』)専用のゲーム開始・戦後処理ロジック。
 // core/rules.js の汎用部品を使いつつ、国家データ(story.js)と組み合わせる橋渡し役。
 import { generateTerrain } from './terrain.js';
-import { UNIT_TYPES, initialHand, ELITE_CHANCE } from './units.js';
+import { UNIT_TYPES, initialHand, makeSkillCard, ELITE_CHANCE, INITIAL_SOLDIERS } from './units.js';
 import { generateNationSquadTemplates } from './rules.js';
 import { createSquad } from './squad.js';
-import { PLAYER_NATION } from './story.js';
+import { PLAYER_NATION, findPlayerCharacter } from './story.js';
 
 // 両軍合わせた兵力規模に応じて盤面サイズを決める(小規模な合戦を無駄に広い盤で戦わせないため)
 function boardSizeFor(combinedTroops) {
@@ -27,46 +27,68 @@ function dominantType(ratios) {
 }
 
 // 合戦の規模(駐留軍の人数)に応じて副将の数を決める。大規模な合戦ほど武将の数が増える
-function viceGeneralCountFor(tileTroopCount) {
+export function viceGeneralCountFor(tileTroopCount) {
   if (tileTroopCount >= 4000) return 3;
   if (tileTroopCount >= 2500) return 2;
   if (tileTroopCount >= 1200) return 1;
   return 0;
 }
 
-function generatePlayerSquadTemplates(ownerId, profile) {
-  const reserve = profile?.storyReserve || {};
+function generatePlayerSquadTemplates(ownerId, profile, generalCharacterId, viceGeneralCharacterIds) {
+  const generalChar = findPlayerCharacter(generalCharacterId);
+  const reserve = { ...(profile?.storyReserve || {}) }; // ローカルコピー(副将の頭数分を差し引く計算用。プロフィール本体は変更しない)
   const hasReserve = Object.values(reserve).some((v) => v > 0);
   if (!hasReserve) {
-    return generateNationSquadTemplates(ownerId, PLAYER_NATION.totalTroops, PLAYER_NATION.composition, UNIT_TYPES.INFANTRY, profile);
+    return generateNationSquadTemplates(ownerId, PLAYER_NATION.totalTroops, PLAYER_NATION.composition, generalChar.type, profile);
   }
-  // 予備兵力ストックから編成する(将軍はノアの持ち兵種である歩兵で固定)
-  const general = createSquad({ ownerId, type: UNIT_TYPES.INFANTRY, isGeneral: true });
-  if (profile?.unlockedGenerals?.includes(UNIT_TYPES.INFANTRY)) general.isEliteGeneral = true;
+  // 予備兵力ストックから編成する(将軍は選択したキャラクターの持ち兵種で固定)
+  const general = createSquad({ ownerId, type: generalChar.type, isGeneral: true });
+  if (profile?.unlockedGenerals?.includes(generalChar.type)) general.isEliteGeneral = true;
   const list = [general];
+  for (const charId of viceGeneralCharacterIds || []) {
+    const char = findPlayerCharacter(charId);
+    list.push(createSquad({ ownerId, type: char.type, isViceGeneral: true }));
+    reserve[char.type] = Math.max(0, (reserve[char.type] || 0) - INITIAL_SOLDIERS);
+  }
   for (const type of Object.values(UNIT_TYPES)) {
     if (reserve[type] > 0) list.push(createSquad({ ownerId, type, isElite: Math.random() < ELITE_CHANCE, count: reserve[type] }));
   }
   return list;
 }
 
+// 選んだ大将・副将キャラクターの固有スキルカードを手札に加える
+function grantCharacterSkills(hand, generalCharacterId, viceGeneralCharacterIds) {
+  const generalChar = findPlayerCharacter(generalCharacterId);
+  hand.push(makeSkillCard(generalChar.skillName, generalChar.skillDesc, generalChar.skillEffect, 'general'));
+  for (const charId of viceGeneralCharacterIds || []) {
+    const char = findPlayerCharacter(charId);
+    hand.push(makeSkillCard(char.skillName, char.skillDesc, char.skillEffect, char.type));
+  }
+}
+
 // tileTroopCount: このマス(領土1つ分、およそ2000人の駐留軍)を守る敵兵力。
 // 国の総兵力をそのまま使うのではなく、マス単位の駐留軍规模で1回の合戦を構成する。
-export function createStoryGame(nation, tileTroopCount, profile = null, landmark = null) {
+// generalCharacterId/viceGeneralCharacterIds: プレイヤーが選んだ大将・副将キャラクター(未指定ならノア単独)
+export function createStoryGame(nation, tileTroopCount, profile = null, landmark = null, generalCharacterId = 'noa', viceGeneralCharacterIds = []) {
   const combinedTroops = getPlayerTotalTroops(profile) + tileTroopCount;
   const { boardSize, deployDepth } = boardSizeFor(combinedTroops);
   const grid = generateTerrain(boardSize, deployDepth);
+  const generalChar = findPlayerCharacter(generalCharacterId);
+  const playerHand = initialHand(profile?.unlockedCards);
+  grantCharacterSkills(playerHand, generalCharacterId, viceGeneralCharacterIds);
+  const enemyHand = initialHand();
+  if (nation.skillName) enemyHand.push(makeSkillCard(nation.skillName, nation.skillDesc, nation.skillEffect, 'general'));
   const state = {
     mode: { id: 'story', name: 'ストーリーモード', boardSize, deployDepth },
     size: boardSize,
     grid,
     squads: [],
     players: {
-      A: { id: 'A', name: 'ノア', hand: initialHand(profile?.unlockedCards) },
-      B: { id: 'B', name: nation.monarch, hand: initialHand() },
+      A: { id: 'A', name: generalChar.name, hand: playerHand },
+      B: { id: 'B', name: nation.monarch, hand: enemyHand },
     },
     deployQueue: {
-      A: generatePlayerSquadTemplates('A', profile),
+      A: generatePlayerSquadTemplates('A', profile, generalCharacterId, viceGeneralCharacterIds),
       B: generateNationSquadTemplates('B', tileTroopCount, nation.composition, dominantType(nation.composition), profile, viceGeneralCountFor(tileTroopCount)),
     },
     phase: 'deploy',

@@ -30,6 +30,35 @@ export const PLAYER_NATION = {
   desc: 'ここから世界をひっくり返す成り上がりが始まる。',
 };
 
+// プレイヤーが大将・副将として選べるキャラクター一覧。それぞれ固有スキル(カード)を持つ。
+// skillEffectは既存のカード効果を再利用し、キャラごとに名前・説明だけ変えて演出している。
+export const PLAYER_CHARACTERS = [
+  {
+    id: 'noa', name: 'ノア', title: '黎明の主将', type: UNIT_TYPES.INFANTRY,
+    desc: '黎明の国を率いる若き主将。仲間を鼓舞する統率力に長ける。',
+    skillName: '不屈の号令', skillDesc: '味方全部隊に密集陣形ボーナス+2を付与する(次の相手ターンまで)', skillEffect: 'allout',
+  },
+  {
+    id: 'rio', name: 'リオ', title: '風読みの弓手', type: UNIT_TYPES.ARCHER,
+    desc: '風向きを読んで矢を放つ、狙撃の達人。',
+    skillName: '百発百中', skillDesc: '次の射撃だけ、相手の地形防御と密集陣形ボーナスを無視する', skillEffect: 'snipe',
+  },
+  {
+    id: 'gai', name: 'ガイ', title: '疾風の騎士', type: UNIT_TYPES.CAVALRY,
+    desc: '一陣の風のごとく戦場を駆け抜ける猛将。',
+    skillName: '疾風怒濤', skillDesc: 'このターンだけ移動力+3。奇襲を使用済みでも発動できる', skillEffect: 'lightning',
+  },
+  {
+    id: 'sera', name: 'セラ', title: '不動の盾', type: UNIT_TYPES.INFANTRY,
+    desc: 'どんな猛攻にも揺るがない、鉄壁の守りを誇る女武将。',
+    skillName: '金剛の盾', skillDesc: 'この部隊が次に防御する戦闘だけ、受ける損害を30%軽減する', skillEffect: 'ironwall',
+  },
+];
+
+export function findPlayerCharacter(id) {
+  return PLAYER_CHARACTERS.find((c) => c.id === id) || PLAYER_CHARACTERS[0];
+}
+
 // 兵種構成の割合表現(多め/少なめ等)を実際の比率に変換するための重み
 const RATIO_WEIGHT = { dominant: 6, high: 3, even: 2, low: 1, minimal: 0.3, none: 0 };
 
@@ -59,6 +88,7 @@ export const STORY_NATIONS = [
     composition: composition('even', 'high', 'none'),
     desc: 'プレイヤーが最初にぶつかる強敵。罠やデバフで三すくみの相性を強引にひっくり返してくる。',
     aiTrait: 'trickery',
+    skillName: '欺瞞の罠', skillDesc: 'この部隊が次に防御する戦闘だけ、受ける損害を30%軽減する', skillEffect: 'ironwall',
   },
   {
     id: 'haga',
@@ -70,6 +100,7 @@ export const STORY_NATIONS = [
     composition: composition('high', 'high', 'minimal'),
     desc: '大陸最大の超大国。圧倒的な物量とパワーで防衛陣形を強引にすり潰して突破する。',
     aiTrait: 'brute_force',
+    skillName: '剛拳の号令', skillDesc: '味方全部隊に密集陣形ボーナス+2を付与する(次の相手ターンまで)', skillEffect: 'allout',
   },
   {
     id: 'shinkyu',
@@ -81,6 +112,7 @@ export const STORY_NATIONS = [
     composition: composition('low', 'minimal', 'high'),
     desc: '美と格式を重んじる国家。乱れのない陣形からの弓の斉射で敵の防御力を数ターン低下させる。',
     aiTrait: 'volley_debuff',
+    skillName: '神弓の一斉射', skillDesc: '次の射撃だけ、相手の地形防御と密集陣形ボーナスを無視する', skillEffect: 'snipe',
   },
   {
     id: 'kyogan',
@@ -92,6 +124,7 @@ export const STORY_NATIONS = [
     composition: composition('dominant', 'minimal', 'low'),
     desc: '重装甲と大盾で固めた歩兵の要塞。通常攻撃をほぼシャットアウトし、反撃でジワジワ削る耐久型。',
     aiTrait: 'fortress',
+    skillName: '不動の陣', skillDesc: 'この部隊が次に防御する戦闘だけ、受ける損害を30%軽減する', skillEffect: 'ironwall',
   },
   {
     id: 'inrou',
@@ -103,6 +136,7 @@ export const STORY_NATIONS = [
     composition: composition('low', 'high', 'minimal'),
     desc: '正面衝突を避け、しげみに潜んで奇襲を仕掛ける。他国が疲弊した隙を突くハイエナ戦術。',
     aiTrait: 'ambush',
+    skillName: '疾風の夜駆け', skillDesc: 'このターンだけ移動力+3。奇襲を使用済みでも発動できる', skillEffect: 'lightning',
   },
   {
     id: 'ryusen',
@@ -114,6 +148,7 @@ export const STORY_NATIONS = [
     composition: composition('low', 'dominant', 'minimal'),
     desc: '孤立したユニットや手薄な防衛線を狙い澄まし、錐で穴をあけるように一撃で貫通してくる。',
     aiTrait: 'spearhead',
+    skillName: '龍穿の一撃', skillDesc: '次の射撃だけ、相手の地形防御と密集陣形ボーナスを無視する', skillEffect: 'snipe',
   },
   {
     id: 'fuin',
@@ -125,6 +160,7 @@ export const STORY_NATIONS = [
     composition: composition('even', 'even', 'even'),
     desc: '底知れない知略で、あらゆる奇策と罠を繰り出す。盤面全体をチェスのようにコントロールする。',
     aiTrait: 'adaptive',
+    skillName: '深謀の采配', skillDesc: '味方全部隊に密集陣形ボーナス+2を付与する(次の相手ターンまで)', skillEffect: 'allout',
   },
   {
     id: 'rekka',
@@ -136,6 +172,7 @@ export const STORY_NATIONS = [
     composition: composition('none', 'dominant', 'none'),
     desc: '防衛用の歩兵も弓兵も一切排除。1ターン目から敵の本陣だけをピンポイントで狙う超短期決戦型。',
     aiTrait: 'rush_general',
+    skillName: '紅蓮の疾走', skillDesc: 'このターンだけ移動力+3。奇襲を使用済みでも発動できる', skillEffect: 'lightning',
   },
   {
     id: 'soukai',
@@ -147,6 +184,7 @@ export const STORY_NATIONS = [
     composition: composition('low', 'low', 'low'),
     desc: '正面衝突の兵法を使わず、何をしてくるか読めない怪しげな戦術で手数の少なさを補う。',
     aiTrait: 'phantom',
+    skillName: '幻影の盾', skillDesc: 'この部隊が次に防御する戦闘だけ、受ける損害を30%軽減する', skillEffect: 'ironwall',
   },
 ];
 

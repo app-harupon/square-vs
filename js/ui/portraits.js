@@ -16,6 +16,11 @@ const PORTRAIT_DEFS = {
   fuin: { bg: ['#b6a8d6', '#5a4f6e'], skin: '#e8d8e0', hair: '#2a1f3a', hairStyle: 'veil', accessory: 'seal', accentColor: '#5a4f6e', eyes: 'closed' },
   rekka: { bg: ['#ffb0a0', '#d64545'], skin: '#ffdcc2', hair: '#d64545', hairStyle: 'spiky', accessory: 'flame', accentColor: '#d64545', eyes: 'fierce' },
   soukai: { bg: ['#7fc8dc', '#3d8fae'], skin: '#e0c8b0', hair: '#1a3d4a', hairStyle: 'wave', accessory: 'mask', accentColor: '#3d8fae', eyes: 'narrow' },
+  // プレイヤーが選べる大将・副将キャラクター
+  noa: { bg: ['#bfe0ff', '#7fb8ff'], skin: '#ffe0c2', hair: '#3a3550', hairStyle: 'short', accessory: 'cape', accentColor: '#3d7fd6', eyes: 'determined' },
+  rio: { bg: ['#cdeccb', '#7fd18a'], skin: '#ffe6cc', hair: '#3a5a2a', hairStyle: 'ponytail', accessory: 'bow', accentColor: '#4f9e3f', eyes: 'sharp' },
+  gai: { bg: ['#ffe0b0', '#ff9a5c'], skin: '#e0a878', hair: '#a83214', hairStyle: 'spiky', accessory: 'plume', accentColor: '#a83214', eyes: 'fierce' },
+  sera: { bg: ['#e8e0f0', '#b6a8d6'], skin: '#ffe0c8', hair: '#e8d8a0', hairStyle: 'long', accessory: 'shield', accentColor: '#5a4f8e', eyes: 'calm' },
 };
 
 function drawHair(ctx, style, color, cx, cy, r) {
@@ -188,6 +193,28 @@ function drawAccessory(ctx, type, color, cx, cy, r) {
       ctx.ellipse(cx, cy + r * 0.05, r * 0.62, r * 0.3, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
+      break;
+    case 'plume':
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.75);
+      ctx.quadraticCurveTo(cx + r * 0.45, cy - r * 1.35, cx + r * 0.15, cy - r * 1.7);
+      ctx.quadraticCurveTo(cx + r * 0.35, cy - r * 1.25, cx, cy - r * 0.75);
+      ctx.fill();
+      break;
+    case 'shield':
+      ctx.fillStyle = '#f0f0f0';
+      ctx.beginPath();
+      ctx.moveTo(cx + r * 0.85, cy - r * 0.1);
+      ctx.lineTo(cx + r * 1.25, cy - r * 0.02);
+      ctx.lineTo(cx + r * 1.2, cy + r * 0.5);
+      ctx.lineTo(cx + r * 0.85, cy + r * 0.75);
+      ctx.lineTo(cx + r * 0.5, cy + r * 0.5);
+      ctx.lineTo(cx + r * 0.45, cy - r * 0.02);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
       break;
   }
 }

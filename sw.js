@@ -1,4 +1,4 @@
-const CACHE_NAME = 'warchess-cache-v29';
+const CACHE_NAME = 'warchess-cache-v30';
 const ASSETS = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ const ASSETS = [
   './js/ui/render3d.js',
   './js/ui/input.js',
   './js/ui/portraits.js',
+  './js/audio/sound.js',
   './js/net/client.js',
   './icons/icon-192.png',
   './icons/icon-512.png',

@@ -34,6 +34,7 @@
     <div id="menu-card" class="menu-card">
       <div class="gem-bar">
         <span id="gem-count">💎 0</span>
+        <button id="mute-btn" class="icon-btn" title="音を切り替え">🔊</button>
         <button id="shop-btn" class="btn btn-secondary btn-small">🛒 ショップ</button>
       </div>
       <h1 class="logo">⚔️ Square VS</h1>
@@ -338,6 +339,19 @@
       <div id="story-map-grid" class="story-map-grid"></div>
       <div id="story-map-legend" class="story-map-legend"></div>
       <button id="story-close-btn" class="btn btn-ghost">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ===== 国盗り合戦: 出陣メンバー(大将・副将)選択 ===== -->
+  <div id="character-select-modal" class="modal-overlay" hidden>
+    <div class="modal-card modal-scroll">
+      <h2>⚔️ 出陣メンバーを選ぶ</h2>
+      <p class="hint">大将を1人選んでください。副将はあと<span id="char-select-vice-remaining">0</span>人まで選べます。</p>
+      <div id="character-select-list" class="character-select-list"></div>
+      <div class="panel-actions">
+        <button id="character-select-confirm-btn" class="btn btn-primary">出陣!</button>
+        <button id="character-select-cancel-btn" class="btn btn-ghost">やめる</button>
+      </div>
     </div>
   </div>
 

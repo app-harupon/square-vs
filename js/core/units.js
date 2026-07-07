@@ -134,6 +134,12 @@ function makeCardInstance(def) {
   return { ...def, uid: `${def.id}_${Math.random().toString(36).slice(2, 8)}` };
 }
 
+// キャラクター固有スキル用: {name, desc, effect}からその場でカードインスタンスを組み立てる
+// (ストーリーモードで武将ごとに異なるスキルを手札に加える際に使う)
+export function makeSkillCard(name, desc, effect, unitType) {
+  return makeCardInstance({ id: `skill_${effect}`, unitType, name, desc, effect, premium: true });
+}
+
 export function initialHand(unlockedCardIds = []) {
   // 基本カードは各兵種1枚ずつ、加えてショップで解放したプレミアムカードを配布する
   const base = Object.values(CARD_DEFS).map(makeCardInstance);

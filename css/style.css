@@ -624,6 +624,43 @@ body {
 .story-map-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .story-map-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
+/* ---------- 出陣メンバー(大将・副将)選択 ---------- */
+.character-select-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.character-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #fff, #f5f6ff);
+  box-shadow: 0 3px 10px rgba(90,90,140,0.12);
+}
+.character-card img {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(90,90,140,0.25);
+}
+.character-card .character-info { flex: 1; min-width: 0; text-align: left; }
+.character-card .character-name { font-weight: 800; font-size: 0.95rem; }
+.character-card .character-title { font-size: 0.72rem; color: var(--ink-soft); }
+.character-card .character-skill { font-size: 0.7rem; color: #8a6a2f; margin-top: 2px; }
+.character-card .character-role-buttons { display: flex; flex-direction: column; gap: 4px; }
+.character-card .role-btn {
+  font-family: inherit;
+  font-size: 0.7rem;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.character-card .role-btn.active.general { background: linear-gradient(135deg, #fff6d6, #ffe08a); border-color: #e0a83c; color: var(--ink); }
+.character-card .role-btn.active.vice { background: linear-gradient(135deg, #eef1f5, #d5dce3); border-color: #a8b4c0; color: var(--ink); }
+.character-card.selected { outline: 2px solid var(--pastel-blue-dark); }
+
 .story-difficulty-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
 .story-difficulty-card {
   display: flex;

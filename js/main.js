@@ -27,8 +27,8 @@ import {
   other,
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
-import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty } from './core/story.js';
-import { createStoryGame, applyStoryVictory } from './core/storyBattle.js';
+import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter } from './core/story.js';
+import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops } from './core/storyBattle.js';
 import {
   generateWorldMap,
   getAttackableTiles,
@@ -45,6 +45,7 @@ import { Renderer3D as Renderer } from './ui/render3d.js';
 import { InputController } from './ui/input.js';
 import { NetClient } from './net/client.js';
 import { getPortraitDataUrl } from './ui/portraits.js';
+import { unlockAudio, playSfx, playBgm, stopBgm, setMuted, isMuted } from './audio/sound.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -53,6 +54,7 @@ const menuScreen = $('menu-screen');
 const menuCard = $('menu-card');
 const gameScreen = $('game-screen');
 const installBtn = $('install-btn');
+const muteBtn = $('mute-btn');
 const modeList = $('mode-list');
 const topModeList = $('top-mode-list');
 const cpuModePanel = $('cpu-mode-panel');
@@ -142,6 +144,11 @@ const storyTileModal = $('story-tile-modal');
 const storyTileTitle = $('story-tile-title');
 const storyTileDesc = $('story-tile-desc');
 const storyTilePortrait = $('story-tile-portrait');
+const characterSelectModal = $('character-select-modal');
+const characterSelectList = $('character-select-list');
+const charSelectViceRemaining = $('char-select-vice-remaining');
+const characterSelectConfirmBtn = $('character-select-confirm-btn');
+const characterSelectCancelBtn = $('character-select-cancel-btn');
 const storyTileAttackBtn = $('story-tile-attack-btn');
 const storyTileAllyBtn = $('story-tile-ally-btn');
 const storyTileCancelBtn = $('story-tile-cancel-btn');
@@ -207,6 +214,9 @@ function showScreen(name) {
   if (name === 'menu') {
     cpuModePanel.hidden = true;
     topModeList.hidden = false;
+    playBgm('menu');
+  } else if (name === 'game') {
+    playBgm('battle');
   }
 }
 
@@ -408,14 +418,86 @@ function startStoryBattle(tileIndex) {
   const total = totalTileCount(map, nationId);
   const difficulty = findDifficulty(profile.storyDifficulty);
   const tileTroopCount = Math.max(500, Math.round((nation.totalTroops / total) * difficulty.scoreMultiplier));
-  isOnlineGame = false;
-  isHost = false;
-  myId = 'A';
   const landmark = isCapitalTile(map, tileIndex) ? 'castle' : isFortressTile(map, tileIndex) ? 'fortress' : null;
-  game = createStoryGame(nation, tileTroopCount, profile, landmark);
-  game.storyTileIndex = tileIndex;
-  enterGameScreen();
+  openCharacterSelect((generalId, viceIds) => {
+    isOnlineGame = false;
+    isHost = false;
+    myId = 'A';
+    game = createStoryGame(nation, tileTroopCount, profile, landmark, generalId, viceIds);
+    game.storyTileIndex = tileIndex;
+    enterGameScreen();
+  });
 }
+
+// ---------- 出陣メンバー(大将・副将)選択 ----------
+let charSelectGeneral = null;
+let charSelectVice = new Set();
+let charSelectOnConfirm = null;
+let charSelectViceLimit = 0;
+
+function openCharacterSelect(onConfirm) {
+  charSelectOnConfirm = onConfirm;
+  charSelectGeneral = findPlayerCharacter(profile.storyLastGeneral || 'noa').id;
+  charSelectViceLimit = viceGeneralCountFor(getPlayerTotalTroops(profile));
+  charSelectVice = new Set((profile.storyLastViceGenerals || []).filter((id) => id !== charSelectGeneral).slice(0, charSelectViceLimit));
+  renderCharacterSelect();
+  characterSelectModal.hidden = false;
+}
+
+function renderCharacterSelect() {
+  charSelectViceRemaining.textContent = Math.max(0, charSelectViceLimit - charSelectVice.size);
+  characterSelectList.innerHTML = '';
+  for (const char of PLAYER_CHARACTERS) {
+    const isGeneral = charSelectGeneral === char.id;
+    const isVice = charSelectVice.has(char.id);
+    const card = document.createElement('div');
+    card.className = 'character-card' + (isGeneral || isVice ? ' selected' : '');
+    card.innerHTML = `
+      <img src="${getPortraitDataUrl(char.id)}" alt="" />
+      <div class="character-info">
+        <div class="character-name">${char.name} <span class="hint">(${UNIT_STATS[char.type].label})</span></div>
+        <div class="character-title">${char.title}</div>
+        <div class="character-skill">✨${char.skillName}: ${char.skillDesc}</div>
+      </div>
+      <div class="character-role-buttons">
+        <button type="button" class="role-btn${isGeneral ? ' active general' : ''}" data-role="general">👑大将</button>
+        <button type="button" class="role-btn${isVice ? ' active vice' : ''}" data-role="vice"${charSelectViceLimit === 0 ? ' disabled' : ''}>🎖️副将</button>
+      </div>
+    `;
+    card.querySelector('[data-role="general"]').addEventListener('click', () => {
+      charSelectGeneral = char.id;
+      charSelectVice.delete(char.id);
+      renderCharacterSelect();
+    });
+    card.querySelector('[data-role="vice"]').addEventListener('click', () => {
+      if (char.id === charSelectGeneral) return;
+      if (charSelectVice.has(char.id)) {
+        charSelectVice.delete(char.id);
+      } else if (charSelectVice.size < charSelectViceLimit) {
+        charSelectVice.add(char.id);
+      } else {
+        playSfx('error');
+        return;
+      }
+      renderCharacterSelect();
+    });
+    characterSelectList.appendChild(card);
+  }
+}
+
+characterSelectConfirmBtn.addEventListener('click', () => {
+  profile.storyLastGeneral = charSelectGeneral;
+  profile.storyLastViceGenerals = [...charSelectVice];
+  saveProfile(profile);
+  characterSelectModal.hidden = true;
+  const cb = charSelectOnConfirm;
+  charSelectOnConfirm = null;
+  cb?.(charSelectGeneral, [...charSelectVice]);
+});
+characterSelectCancelBtn.addEventListener('click', () => {
+  characterSelectModal.hidden = true;
+  charSelectOnConfirm = null;
+});
 
 function buildStoryDifficultyList() {
   storyDifficultyList.innerHTML = '';
@@ -429,6 +511,7 @@ function buildStoryDifficultyList() {
       storyDifficultyModal.hidden = true;
       buildStoryMap();
       storyModal.hidden = false;
+      playBgm('story');
     });
     storyDifficultyList.appendChild(card);
   }
@@ -442,9 +525,11 @@ storyBtn.addEventListener('click', () => {
   }
   buildStoryMap();
   storyModal.hidden = false;
+  playBgm('story');
 });
 storyCloseBtn.addEventListener('click', () => {
   storyModal.hidden = true;
+  playBgm('menu');
 });
 
 function enterGameScreen() {
@@ -992,6 +1077,7 @@ function showCardCutin(card) {
   cardCutinTimer = setTimeout(() => {
     cardCutin.hidden = true;
   }, 1900);
+  playSfx('cardUse');
   vibrate(30);
 }
 cardCutin.addEventListener('pointerdown', () => {
@@ -1321,6 +1407,7 @@ function handleBoardTap(x, y) {
       const fromX = sq.x, fromY = sq.y;
       moveSquad(game, sq, x, y);
       if (!dragJustEnded) renderer.animateMove(game, sq, fromX, fromY, sq.x, sq.y);
+      playSfx('move');
       afterPlayerAction();
       return;
     }
@@ -1394,7 +1481,10 @@ function tryPlaceFromQueue(templateIndex, x, y) {
   }
   if (template.count <= MIN_ACTIVE_SOLDIERS) {
     pushDeployHistory();
-    if (placeSquad(game, myId, templateIndex, x, y)) selectedDeployIndex = null;
+    if (placeSquad(game, myId, templateIndex, x, y)) {
+      selectedDeployIndex = null;
+      playSfx('deploy');
+    }
     syncDeployState();
     refreshDeployUI();
     render();
@@ -1430,6 +1520,7 @@ $('deploy-amount-confirm-btn').addEventListener('click', () => {
   pushDeployHistory();
   if (placeSquad(game, myId, pending.templateIndex, pending.x, pending.y, amount)) {
     selectedDeployIndex = null;
+    playSfx('deploy');
   }
   syncDeployState();
   refreshDeployUI();
@@ -1581,6 +1672,7 @@ function showCombatModal(c) {
     side('防御側 ' + c.defenderName, c.defenderLog, c.defenderCasualties, c.defenderRemaining) +
     `<div class="result-line">${c.defenderDied ? '敵部隊は壊滅した!' : c.attackerDied ? '味方部隊が壊滅した……' : ''}</div>`;
   combatModal.hidden = false;
+  playSfx(c.isRanged ? 'ranged' : 'melee');
   vibrate(c.defenderDied || c.attackerDied ? [30, 40, 30] : 20);
 }
 
@@ -1665,6 +1757,8 @@ function showResult() {
     resultDesc.textContent += resolveStoryBattleOutcome(game, game.winner === myId, game.winner === myId ? '勝利!' : '敗北……');
   }
   resultModal.hidden = false;
+  playSfx(game.winner === myId ? 'victory' : game.winner === 'draw' ? 'error' : 'defeat');
+  stopBgm();
   vibrate(game.winner === myId ? [40, 60, 40, 60, 80] : [200]);
 }
 
@@ -1685,6 +1779,7 @@ function resolveStoryBattleOutcome(finishedGame, won) {
     owners[tileIndex] = 'player';
 
     if (capturedCapital && remainingBefore > 1) {
+      playSfx('capital');
       // 首都陥落: 残りの領土もまとめて総取りする(平均駐留軍を兵種比率で概算して追加吸収する)
       let extraTilesClaimed = 0;
       for (let i = 0; i < owners.length; i++) {
@@ -2012,6 +2107,29 @@ function closeTopmostOverlay() {
   }
   return false;
 }
+
+// ---------- サウンド(BGM・効果音) ----------
+setMuted(!!profile.muted);
+updateMuteButton();
+function updateMuteButton() {
+  muteBtn.textContent = isMuted() ? '🔇' : '🔊';
+}
+muteBtn.addEventListener('click', () => {
+  setMuted(!isMuted());
+  profile.muted = isMuted();
+  saveProfile(profile);
+  updateMuteButton();
+  if (!isMuted()) playSfx('tap');
+});
+// ブラウザの自動再生制限のため、最初のユーザー操作でAudioContextを起動する
+window.addEventListener('pointerdown', unlockAudio, { once: true });
+
+// ボタン類のタップに軽い効果音をまとめて付ける(個別配線が必要な操作は上で別途鳴らしている)
+document.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('.btn, .top-mode-card, .mode-card, .icon-btn, .story-difficulty-card, .story-map-tile, .card-chip')) {
+    playSfx('tap');
+  }
+});
 
 // ---------- 初期化 ----------
 buildMenu();

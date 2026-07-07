@@ -14,6 +14,9 @@ const DEFAULT_PROFILE = {
   storyAlliances: [], // プレイヤーと同盟を結んだ国のID一覧
   storyDifficulty: null, // 選択した難易度ID(キャンペーン開始時に1回だけ選ぶ)
   tutorialSeen: false, // 初回チュートリアルを見た(またはスキップした)かどうか
+  muted: false, // BGM・効果音をミュートしているか
+  storyLastGeneral: null, // 直近で選んだ大将キャラクターID(次回のデフォルト選択に使う)
+  storyLastViceGenerals: [], // 直近で選んだ副将キャラクターIDの配列
 };
 
 export function loadProfile() {
