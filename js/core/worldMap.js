@@ -97,9 +97,41 @@ export function generateWorldMap() {
   for (const n of others) growBlob(tiles, n.id, n.size);
   // プレイヤーの本拠地は他国配置が終わった後、必ず隣接するマスに置く
   placeAdjacentToExisting(tiles, PLAYER_NATION.id, tileCountForTroops(PLAYER_NATION.totalTroops));
+  // 空白地が残らないよう、余ったマスは隣接する国へ塗り広げて埋める(最初から全マスがどこかの国の領土になる)
+  fillRemainingGaps(tiles);
 
   const owners = tiles.map((nationId) => (nationId === PLAYER_NATION.id ? 'player' : nationId));
   return { width: MAP_WIDTH, height: MAP_HEIGHT, tiles, owners };
+}
+
+// ブロブ配置後に残った空白マスを、隣接する国の領土で塗り広げて埋め尽くす
+function fillRemainingGaps(tiles) {
+  let hasEmpty = tiles.some((t) => !t);
+  let safety = 0;
+  while (hasEmpty && safety < 100) {
+    safety++;
+    hasEmpty = false;
+    const snapshot = [...tiles];
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+      for (let x = 0; x < MAP_WIDTH; x++) {
+        const i = idx(x, y);
+        if (snapshot[i]) continue;
+        const neighborOwners = [];
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && ny >= 0 && nx < MAP_WIDTH && ny < MAP_HEIGHT && snapshot[idx(nx, ny)]) {
+            neighborOwners.push(snapshot[idx(nx, ny)]);
+          }
+        }
+        if (neighborOwners.length) {
+          tiles[i] = neighborOwners[Math.floor(Math.random() * neighborOwners.length)];
+        } else {
+          hasEmpty = true;
+        }
+      }
+    }
+  }
 }
 
 function neighborsOf(i) {
