@@ -8,8 +8,8 @@ import { isConcealedFrom } from '../core/rules.js';
 import { UNIT_TYPES } from '../core/units.js';
 
 const TILE_SIZE = 1;
-const ELEVATION_UNIT = { [TERRAIN.HILL]: 0.32, [TERRAIN.MOUNTAIN]: 0.85 };
-const BASE_THICKNESS = 0.34;
+const ELEVATION_UNIT = { [TERRAIN.HILL]: 0.24, [TERRAIN.MOUNTAIN]: 0.6 };
+const BASE_THICKNESS = 0.3;
 
 const TERRAIN_COLORS = {
   [TERRAIN.PLAIN]: 0xbfe89a,
@@ -30,7 +30,7 @@ export class Renderer3D {
     this.animations = new Map();
 
     this.azimuth = Math.PI / 4;
-    this.polar = 1.05; // 0に近いほど真上から、大きいほど横から見た感じになる(斜め見下ろしを強めて立体感を強調)
+    this.polar = 0.92; // 0に近いほど真上から、大きいほど横から見た感じになる
     this.distance = 10;
     this.target = { x: 0, z: 0 }; // カメラが注視する(=盤面をスライドさせる)ワールド座標上の点
     this.camera = { x: 0, y: 0, scale: 1 }; // input.js互換: 1本指ドラッグの蓄積量(差分をパンに変換する)
@@ -47,8 +47,9 @@ export class Renderer3D {
     this.renderer3.shadowMap.enabled = true;
     this.renderer3.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.95));
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0xcfd8dc, 0.55)); // 空と地面からの柔らかい補助光で暗部を持ち上げる
+    const sun = new THREE.DirectionalLight(0xffffff, 0.55);
     sun.position.set(8, 16, 6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -59,6 +60,7 @@ export class Renderer3D {
     sun.shadow.camera.top = 50;
     sun.shadow.camera.bottom = -50;
     sun.shadow.bias = -0.0015;
+    sun.shadow.radius = 3; // 影の縁をやわらかくボケさせる(PCFSoftShadowMap時に効く)
     this.scene.add(sun);
     this.scene.add(sun.target);
     this.sunLight = sun;
@@ -128,7 +130,7 @@ export class Renderer3D {
   fitBoard(size) {
     this.size = size;
     this.azimuth = Math.PI / 4;
-    this.polar = 1.05;
+    this.polar = 0.92;
     // 縦横比(特に縦長のスマホ画面)を考慮し、盤面全体が収まる距離を計算する
     const halfExtent = Math.max(1, (size - 1) / 2) * Math.SQRT2 + 1.4;
     const vFov = (this.perspCamera.fov * Math.PI) / 180;
@@ -264,8 +266,8 @@ export class Renderer3D {
         const elevation = ELEVATION_UNIT[terrain] || 0;
         const height = terrain === TERRAIN.WATER ? 0.06 : BASE_THICKNESS + elevation;
         const centerY = terrain === TERRAIN.WATER ? -height / 2 : elevation - height / 2;
-        const geo = new THREE.BoxGeometry(TILE_SIZE * 0.96, height, TILE_SIZE * 0.96);
-        const mat = new THREE.MeshStandardMaterial({ color: TERRAIN_COLORS[terrain], roughness: 0.9 });
+        const geo = new THREE.BoxGeometry(TILE_SIZE * 0.985, height, TILE_SIZE * 0.985);
+        const mat = new THREE.MeshStandardMaterial({ color: TERRAIN_COLORS[terrain], roughness: 0.85 });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
