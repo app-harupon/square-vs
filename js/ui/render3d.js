@@ -14,9 +14,9 @@ const BASE_THICKNESS = 0.3;
 const TERRAIN_COLORS = {
   [TERRAIN.PLAIN]: 0xbfe89a,
   [TERRAIN.FOREST]: 0x5fae5f,
-  [TERRAIN.HILL]: 0xd9c284,
+  [TERRAIN.HILL]: 0x9ecf72,
   [TERRAIN.MOUNTAIN]: 0xb2a8cf,
-  [TERRAIN.WATER]: 0x6fc2ea,
+  [TERRAIN.WATER]: 0x8fd8f5,
   [TERRAIN.ROAD]: 0xe7dab6,
 };
 
@@ -64,9 +64,12 @@ function createWaterTexture() {
   canvas.width = 64;
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#5fb3e0';
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, 64);
+  bgGrad.addColorStop(0, '#a0e0f5');
+  bgGrad.addColorStop(1, '#7fcdf0');
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, 64, 64);
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
   ctx.lineWidth = 2.4;
   for (let y = -10; y < 74; y += 12) {
     ctx.beginPath();
@@ -77,7 +80,7 @@ function createWaterTexture() {
     }
     ctx.stroke();
   }
-  ctx.strokeStyle = 'rgba(30,110,160,0.35)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
   ctx.lineWidth = 1.4;
   for (let y = -4; y < 74; y += 12) {
     ctx.beginPath();
@@ -140,6 +143,63 @@ function createRockTexture() {
   return texture;
 }
 
+// 道: 踏み固められた土に小石や轍(わだち)が見える、使い込まれた小道の質感を表現する
+let cachedRoadTexture = null;
+function createRoadTexture() {
+  if (cachedRoadTexture) return cachedRoadTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const bgGrad = ctx.createLinearGradient(0, 0, 128, 128);
+  bgGrad.addColorStop(0, '#d8bd8e');
+  bgGrad.addColorStop(1, '#c9a877');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, 128, 128);
+
+  let seed = 7;
+  const rand = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+  // 踏み固められ具合を表す薄い斑点
+  for (let i = 0; i < 70; i++) {
+    const x = rand() * 128;
+    const y = rand() * 128;
+    const r = 3 + rand() * 7;
+    const shade = rand() > 0.5 ? `rgba(150,115,70,${0.1 + rand() * 0.15})` : `rgba(255,240,210,${0.12 + rand() * 0.18})`;
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 0.7, rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // 轍(2本のわだち)
+  ctx.strokeStyle = 'rgba(110,80,45,0.35)';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  for (const offset of [-22, 22]) {
+    ctx.beginPath();
+    for (let y = -10; y <= 138; y += 8) {
+      const x = 64 + offset + Math.sin(y / 40) * 6;
+      if (y === -10) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // 小石
+  ctx.fillStyle = 'rgba(90,70,50,0.5)';
+  for (let i = 0; i < 26; i++) {
+    const x = rand() * 128;
+    const y = rand() * 128;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 1.4 + rand() * 1.6, 1 + rand() * 1.2, rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  cachedRoadTexture = texture;
+  return texture;
+}
+
 export class Renderer3D {
   constructor(canvas) {
     this.canvas = canvas;
@@ -170,9 +230,9 @@ export class Renderer3D {
     this.renderer3.shadowMap.enabled = true;
     this.renderer3.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.95));
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0xcfd8dc, 0.55)); // 空と地面からの柔らかい補助光で暗部を持ち上げる
-    const sun = new THREE.DirectionalLight(0xffffff, 0.55);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 1.25));
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0xdce6ea, 0.75)); // 空と地面からの柔らかい補助光で暗部を持ち上げる
+    const sun = new THREE.DirectionalLight(0xfff8ec, 0.7);
     sun.position.set(8, 16, 6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -430,10 +490,15 @@ export class Renderer3D {
         if (terrain === TERRAIN.WATER) {
           matOpts.map = createWaterTexture();
           matOpts.color = 0xffffff;
-          matOpts.roughness = 0.35;
-          matOpts.metalness = 0.1;
+          matOpts.roughness = 0.25;
+          matOpts.metalness = 0;
+          matOpts.emissive = 0x336a8a;
+          matOpts.emissiveIntensity = 0.15;
         } else if (terrain === TERRAIN.MOUNTAIN) {
           matOpts.map = createRockTexture();
+          matOpts.color = 0xffffff;
+        } else if (terrain === TERRAIN.ROAD) {
+          matOpts.map = createRoadTexture();
           matOpts.color = 0xffffff;
         }
         const mat = new THREE.MeshStandardMaterial(matOpts);
@@ -449,6 +514,21 @@ export class Renderer3D {
         this._addTerrainDecor(terrain, gx, gy, elevation);
       }
     }
+    if (state.landmark) this._addCastle(state);
+  }
+
+  // ストーリーモードで、この合戦が王城/砦マスのものなら、敵陣(B軍の出撃ゾーン奥)に城を配置する
+  _addCastle(state) {
+    const size = state.size;
+    const gx = Math.floor((size - 1) / 2);
+    const gy = size - 1; // B軍(敵)の最奥列
+    const terrain = state.grid[gy][gx].terrain;
+    const elevation = ELEVATION_UNIT[terrain] || 0;
+    const center = this.tileCenter(gx, gy, elevation);
+    const scale = state.landmark === 'castle' ? 1.35 : 0.85;
+    const castle = makeCastle(scale);
+    castle.position.set(center.x, elevation, center.z);
+    this.decorGroup.add(castle);
   }
 
   _addTerrainDecor(terrain, gx, gy, elevation) {
@@ -480,24 +560,32 @@ export class Renderer3D {
         this.decorGroup.add(rock);
       }
     } else if (terrain === TERRAIN.PLAIN) {
-      // 風にそよぐ草むらを数株配置し、_startAmbientLoopで揺らす
-      const bladeMat = new THREE.MeshStandardMaterial({ color: 0x6fbf5f, roughness: 0.85, side: THREE.DoubleSide });
       const count = seed % 2 === 0 ? 3 : 2;
-      for (let i = 0; i < count; i++) {
-        const tuft = new THREE.Group();
-        const bladeCount = 3;
-        for (let b = 0; b < bladeCount; b++) {
-          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.12 + (b % 2) * 0.03, 3), bladeMat);
-          blade.position.set((b - 1) * 0.03, 0.06, 0);
-          blade.rotation.z = (b - 1) * 0.35;
-          tuft.add(blade);
-        }
-        const ang = (seed * 0.7 + i * 2.1) % (Math.PI * 2);
-        const dist = 0.18 + (i % 2) * 0.12;
-        tuft.position.set(center.x + Math.cos(ang) * dist, elevation, center.z + Math.sin(ang) * dist);
-        this.decorGroup.add(tuft);
-        this._grassTufts.push({ mesh: tuft, phase: seed * 0.31 + i });
+      this._addGrassTufts(center, elevation, seed, count, 0x6fbf5f);
+    } else if (terrain === TERRAIN.HILL) {
+      // 芝が生い茂っている見た目にするため、平地より密度高め・濃い緑の草むらを配置する
+      const count = 4 + (seed % 3);
+      this._addGrassTufts(center, elevation, seed, count, 0x4f9e3f);
+    }
+  }
+
+  // 風にそよぐ草むらを数株配置し、_startAmbientLoopで揺らす(平地・丘の両方から呼ばれる)
+  _addGrassTufts(center, elevation, seed, count, colorHex) {
+    const bladeMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.85, side: THREE.DoubleSide });
+    for (let i = 0; i < count; i++) {
+      const tuft = new THREE.Group();
+      const bladeCount = 3;
+      for (let b = 0; b < bladeCount; b++) {
+        const blade = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.12 + (b % 2) * 0.03, 3), bladeMat);
+        blade.position.set((b - 1) * 0.03, 0.06, 0);
+        blade.rotation.z = (b - 1) * 0.35;
+        tuft.add(blade);
       }
+      const ang = (seed * 0.7 + i * 2.1) % (Math.PI * 2);
+      const dist = 0.14 + (i % 3) * 0.1;
+      tuft.position.set(center.x + Math.cos(ang) * dist, elevation, center.z + Math.sin(ang) * dist);
+      this.decorGroup.add(tuft);
+      this._grassTufts.push({ mesh: tuft, phase: seed * 0.31 + i });
     }
   }
 
@@ -614,6 +702,46 @@ function makeTree() {
   );
   leaves.position.y = 0.2;
   group.add(trunk, leaves);
+  return group;
+}
+
+// 城(王城/砦)を簡易な塔+城壁の組み合わせで表現する。scaleが大きいほど王城らしい威容になる。
+function makeCastle(scale = 1) {
+  const group = new THREE.Group();
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0xcfc6b8, roughness: 0.9 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x9e4f4f, roughness: 0.75 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xe0d8c4, roughness: 0.88 });
+
+  // 中央の主塔
+  const keep = new THREE.Mesh(new THREE.CylinderGeometry(0.14 * scale, 0.17 * scale, 0.42 * scale, 8), stoneMat);
+  keep.position.y = 0.21 * scale;
+  keep.castShadow = true;
+  group.add(keep);
+  const keepRoof = new THREE.Mesh(new THREE.ConeGeometry(0.18 * scale, 0.22 * scale, 8), roofMat);
+  keepRoof.position.y = 0.42 * scale + 0.11 * scale;
+  keepRoof.castShadow = true;
+  group.add(keepRoof);
+
+  // 周囲の櫓(四隅)
+  const towerDist = 0.32 * scale;
+  for (let i = 0; i < 4; i++) {
+    const ang = (Math.PI / 2) * i + Math.PI / 4;
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * scale, 0.07 * scale, 0.26 * scale, 6), stoneMat);
+    tower.position.set(Math.cos(ang) * towerDist, 0.13 * scale, Math.sin(ang) * towerDist);
+    tower.castShadow = true;
+    group.add(tower);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.08 * scale, 0.14 * scale, 6), roofMat);
+    roof.position.set(Math.cos(ang) * towerDist, 0.26 * scale + 0.07 * scale, Math.sin(ang) * towerDist);
+    roof.castShadow = true;
+    group.add(roof);
+  }
+
+  // つながりを示す低い城壁
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(0.62 * scale, 0.1 * scale, 0.62 * scale), wallMat);
+  wall.position.y = 0.05 * scale;
+  wall.castShadow = true;
+  group.add(wall);
+
   return group;
 }
 

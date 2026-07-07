@@ -102,7 +102,8 @@ export function generateWorldMap() {
 
   const owners = tiles.map((nationId) => (nationId === PLAYER_NATION.id ? 'player' : nationId));
   const capitals = computeCapitals(tiles);
-  return { width: MAP_WIDTH, height: MAP_HEIGHT, tiles, owners, capitals };
+  const fortresses = computeFortresses(tiles, capitals);
+  return { width: MAP_WIDTH, height: MAP_HEIGHT, tiles, owners, capitals, fortresses };
 }
 
 // 各国の領土のうち、最も中心に近いマスを首都に定める(首都を落とすと国ごと総取りできる)
@@ -140,6 +141,44 @@ function computeCapitals(tiles) {
 export function isCapitalTile(map, tileIndex) {
   const nationId = map.tiles[tileIndex];
   return !!nationId && map.capitals[nationId] === tileIndex;
+}
+
+// 領土が3マス以上ある国には、首都から最も離れたマスに前線の砦(出城)を1つ置く。
+// 首都ほどの重みはないが、地図上の目印・見た目のアクセントとして機能する。
+function computeFortresses(tiles, capitals) {
+  const byNation = {};
+  for (let i = 0; i < tiles.length; i++) {
+    const n = tiles[i];
+    if (!n) continue;
+    (byNation[n] = byNation[n] || []).push(i);
+  }
+  const fortresses = {};
+  for (const [nationId, indices] of Object.entries(byNation)) {
+    if (indices.length < 3) continue;
+    const capital = capitals[nationId];
+    let best = null;
+    let bestDist = -1;
+    for (const i of indices) {
+      if (i === capital) continue;
+      const ix = i % MAP_WIDTH;
+      const iy = Math.floor(i / MAP_WIDTH);
+      const cx = capital % MAP_WIDTH;
+      const cy = Math.floor(capital / MAP_WIDTH);
+      const dist = Math.abs(ix - cx) + Math.abs(iy - cy);
+      if (dist > bestDist) {
+        bestDist = dist;
+        best = i;
+      }
+    }
+    if (best !== null) fortresses[nationId] = best;
+  }
+  return fortresses;
+}
+
+// 指定したマスが、その国の砦(出城)かどうか
+export function isFortressTile(map, tileIndex) {
+  const nationId = map.tiles[tileIndex];
+  return !!nationId && map.fortresses?.[nationId] === tileIndex;
 }
 
 // ブロブ配置後に残った空白マスを、隣接する国の領土で塗り広げて埋め尽くす

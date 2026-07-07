@@ -52,7 +52,7 @@ function generatePlayerSquadTemplates(ownerId, profile) {
 
 // tileTroopCount: このマス(領土1つ分、およそ2000人の駐留軍)を守る敵兵力。
 // 国の総兵力をそのまま使うのではなく、マス単位の駐留軍规模で1回の合戦を構成する。
-export function createStoryGame(nation, tileTroopCount, profile = null) {
+export function createStoryGame(nation, tileTroopCount, profile = null, landmark = null) {
   const combinedTroops = getPlayerTotalTroops(profile) + tileTroopCount;
   const { boardSize, deployDepth } = boardSizeFor(combinedTroops);
   const grid = generateTerrain(boardSize, deployDepth);
@@ -77,6 +77,7 @@ export function createStoryGame(nation, tileTroopCount, profile = null) {
     lastCombat: null,
     isStory: true,
     storyNation: nation,
+    landmark, // 'castle'(王城) | 'fortress'(砦) | null。B軍(敵)の陣地に城の装飾を立てる目印
   };
   return state;
 }

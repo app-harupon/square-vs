@@ -39,6 +39,7 @@ import {
   simulateGreatPowerDynamics,
   isNeutralTile,
   isCapitalTile,
+  isFortressTile,
 } from './core/worldMap.js';
 import { Renderer3D as Renderer } from './ui/render3d.js';
 import { InputController } from './ui/input.js';
@@ -321,6 +322,7 @@ function buildStoryMap() {
       else if (owner !== 'player') tile.classList.add('locked');
     }
     if (isCapitalTile(map, i) && owner !== 'player') tile.classList.add('capital');
+    if (isFortressTile(map, i) && owner !== 'player') tile.classList.add('fortress');
     if (nationId && owner !== 'player' && attackable.has(i)) {
       if (isNeutralTile(map, owners, i)) {
         tile.title = '無主化した土地(戦闘なしでそのまま制圧できます)';
@@ -335,6 +337,8 @@ function buildStoryMap() {
   storyMapLegend.innerHTML = `
     <span><i style="background:${PLAYER_NATION.color}"></i>あなた(黎明)</span>
     ${STORY_NATIONS.map((n) => `<span><i style="background:${n.color}"></i>${n.name}</span>`).join('')}
+    <span>🏰 王城(ここを落とせば総取り)</span>
+    <span>🏯 前線の砦</span>
   `;
 
   const reserve = profile.storyReserve;
@@ -352,7 +356,11 @@ function openStoryTileModal(tileIndex) {
   const total = totalTileCount(map, nationId);
   storyTileTitle.textContent = `${nation.name}(${nation.monarch})`;
   storyTilePortrait.src = getPortraitDataUrl(nationId);
-  const capitalNote = isCapitalTile(map, tileIndex) ? ' 👑この国の首都です。落とせば残り領土を総取りできます!' : '';
+  const capitalNote = isCapitalTile(map, tileIndex)
+    ? ' 🏰この国の王城です。落とせば残り領土を総取りできます!'
+    : isFortressTile(map, tileIndex)
+      ? ' 🏯この国の前線の砦です。守りが堅い要衝です。'
+      : '';
   storyTileDesc.textContent = `${nation.desc} 残り領土 ${remaining}/${total}${capitalNote}`;
   const alreadyAllied = profile.storyAlliances.includes(nationId);
   storyTileAllyBtn.hidden = alreadyAllied;
@@ -402,7 +410,8 @@ function startStoryBattle(tileIndex) {
   isOnlineGame = false;
   isHost = false;
   myId = 'A';
-  game = createStoryGame(nation, tileTroopCount, profile);
+  const landmark = isCapitalTile(map, tileIndex) ? 'castle' : isFortressTile(map, tileIndex) ? 'fortress' : null;
+  game = createStoryGame(nation, tileTroopCount, profile, landmark);
   game.storyTileIndex = tileIndex;
   enterGameScreen();
 }

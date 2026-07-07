@@ -588,11 +588,20 @@ body {
   font-size: 0.6rem;
 }
 .story-map-tile.capital::before {
-  content: '👑';
+  content: '🏰';
   position: absolute;
   top: -3px;
   right: -3px;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
+.story-map-tile.fortress::before {
+  content: '🏯';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  font-size: 0.58rem;
   line-height: 1;
   filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
 }
