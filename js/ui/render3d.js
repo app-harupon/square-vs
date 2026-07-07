@@ -20,6 +20,126 @@ const TERRAIN_COLORS = {
   [TERRAIN.ROAD]: 0xe7dab6,
 };
 
+// 背景の空グラデーション+雲をcanvasに描いてテクスチャ化する(単色より奥行きのある見た目にする)
+let cachedSkyTexture = null;
+function createSkyTexture() {
+  if (cachedSkyTexture) return cachedSkyTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#7fb2e6');
+  grad.addColorStop(0.45, '#bfe0f5');
+  grad.addColorStop(0.75, '#eaf6ff');
+  grad.addColorStop(1, '#fdfdf0');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 柔らかい雲を数個散らす
+  const clouds = [
+    { x: 110, y: 120, s: 70 }, { x: 380, y: 90, s: 55 }, { x: 250, y: 180, s: 85 },
+    { x: 60, y: 260, s: 50 }, { x: 430, y: 230, s: 60 }, { x: 300, y: 320, s: 65 },
+  ];
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  for (const c of clouds) {
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y, c.s, c.s * 0.42, 0, 0, Math.PI * 2);
+    ctx.ellipse(c.x + c.s * 0.55, c.y + c.s * 0.08, c.s * 0.65, c.s * 0.36, 0, 0, Math.PI * 2);
+    ctx.ellipse(c.x - c.s * 0.5, c.y + c.s * 0.1, c.s * 0.55, c.s * 0.32, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  cachedSkyTexture = texture;
+  return texture;
+}
+
+// 川面: 波模様を描き、テクスチャをスクロールさせることで水流のアニメーションを表現する
+let cachedWaterTexture = null;
+function createWaterTexture() {
+  if (cachedWaterTexture) return cachedWaterTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#5fb3e0';
+  ctx.fillRect(0, 0, 64, 64);
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 2.4;
+  for (let y = -10; y < 74; y += 12) {
+    ctx.beginPath();
+    for (let x = 0; x <= 64; x += 4) {
+      const wy = y + Math.sin((x / 64) * Math.PI * 2) * 3.5;
+      if (x === 0) ctx.moveTo(x, wy);
+      else ctx.lineTo(x, wy);
+    }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(30,110,160,0.35)';
+  ctx.lineWidth = 1.4;
+  for (let y = -4; y < 74; y += 12) {
+    ctx.beginPath();
+    for (let x = 0; x <= 64; x += 4) {
+      const wy = y + Math.sin((x / 64) * Math.PI * 2 + 1.4) * 3;
+      if (x === 0) ctx.moveTo(x, wy);
+      else ctx.lineTo(x, wy);
+    }
+    ctx.stroke();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1, 1);
+  cachedWaterTexture = texture;
+  return texture;
+}
+
+// 山肌: ごつごつした岩の質感をランダムな斑点・ひび割れ調の陰影で表現する
+let cachedRockTexture = null;
+function createRockTexture() {
+  if (cachedRockTexture) return cachedRockTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#a79cc2';
+  ctx.fillRect(0, 0, 128, 128);
+  let seed = 42;
+  const rand = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+  for (let i = 0; i < 90; i++) {
+    const x = rand() * 128;
+    const y = rand() * 128;
+    const r = 4 + rand() * 10;
+    const shade = rand() > 0.5 ? `rgba(70,60,90,${0.12 + rand() * 0.18})` : `rgba(255,255,255,${0.08 + rand() * 0.16})`;
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * (0.6 + rand() * 0.5), rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(50,42,70,0.3)';
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 10; i++) {
+    ctx.beginPath();
+    let x = rand() * 128;
+    let y = rand() * 128;
+    ctx.moveTo(x, y);
+    for (let j = 0; j < 4; j++) {
+      x += (rand() - 0.5) * 30;
+      y += (rand() - 0.5) * 30;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  cachedRockTexture = texture;
+  return texture;
+}
+
 export class Renderer3D {
   constructor(canvas) {
     this.canvas = canvas;
@@ -33,13 +153,16 @@ export class Renderer3D {
     this.polar = 0.92; // 0に近いほど真上から、大きいほど横から見た感じになる
     this.distance = 10;
     this.target = { x: 0, z: 0 }; // カメラが注視する(=盤面をスライドさせる)ワールド座標上の点
-    this.camera = { x: 0, y: 0, scale: 1 }; // input.js互換: 1本指ドラッグの蓄積量(差分をパンに変換する)
-    this._lastCameraX = 0;
-    this._lastCameraY = 0;
+    this.camera = { x: 0, y: 0, scale: 1 }; // input.js互換ダミー(実際のパンはpanScreen/panEndで1:1追従させる)
+    this._lastPanWorld = null; // パン中の直前フレームでの接地点(ワールド座標)
+
+    this._waterMaterials = []; // 川の流れアニメーション対象
+    this._grassTufts = []; // 風で揺れる草むらデコレーション({mesh, phase})
+    this._ambientClock = 0;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xdfeeff);
-    this.scene.fog = new THREE.Fog(0xdfeeff, 16, 62); // 遠景をわずかにかすませて奥行きを強調する
+    this.scene.background = createSkyTexture(); // 単色ではなく雲入りの空グラデーションにする
+    this.scene.fog = new THREE.Fog(0xd9ecf7, 16, 62); // 遠景をわずかにかすませて奥行きを強調する(空の色に合わせる)
     this.perspCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
     this.renderer3 = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -76,6 +199,37 @@ export class Renderer3D {
 
     this._raycaster = new THREE.Raycaster();
     this._groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+    this._startAmbientLoop();
+  }
+
+  // 川の水流・草の揺れなど、ターン進行と無関係に常時ゆっくり動かしたい演出専用のループ。
+  // ゲーム状態の更新を伴わないため、main.js側のdraw()呼び出しとは独立して動かす。
+  // 揺らぎはゆっくりなので、電池消費を抑えるため意図的に低フレームレート(約12fps)に間引く。
+  _startAmbientLoop() {
+    let last = performance.now();
+    let acc = 0;
+    const FRAME_INTERVAL = 1 / 12;
+    const tick = (now) => {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      this._ambientClock += dt;
+      acc += dt;
+      if (acc >= FRAME_INTERVAL && (this._waterMaterials.length || this._grassTufts.length)) {
+        acc = 0;
+        for (const mat of this._waterMaterials) {
+          if (mat.map) mat.map.offset.y = (this._ambientClock * 0.06) % 1;
+        }
+        for (const tuft of this._grassTufts) {
+          const sway = Math.sin(this._ambientClock * 1.6 + tuft.phase) * 0.14;
+          tuft.mesh.rotation.z = sway;
+          tuft.mesh.rotation.x = sway * 0.5;
+        }
+        this.renderer3.render(this.scene, this.perspCamera);
+      }
+      this._ambientLoopId = requestAnimationFrame(tick);
+    };
+    this._ambientLoopId = requestAnimationFrame(tick);
   }
 
   // ---------- 座標変換(グリッド <-> ワールド) ----------
@@ -151,24 +305,17 @@ export class Renderer3D {
     this.target.z = 0;
     this.camera.x = 0;
     this.camera.y = 0;
-    this._lastCameraX = 0;
-    this._lastCameraY = 0;
+    this._lastPanWorld = null;
   }
 
   _updateCamera() {
-    // camera.x/yはinput.jsの1本指ドラッグの蓄積量。前回からの差分だけを盤面のスライド(パン)に変換する
-    const dx = this.camera.x - this._lastCameraX;
-    const dy = this.camera.y - this._lastCameraY;
-    this._lastCameraX = this.camera.x;
-    this._lastCameraY = this.camera.y;
-    if (dx || dy) this._panBy(dx, dy);
-
     const r = this.distance;
     const px = this.target.x + r * Math.sin(this.polar) * Math.sin(this.azimuth);
     const pz = this.target.z + r * Math.sin(this.polar) * Math.cos(this.azimuth);
     const py = r * Math.cos(this.polar);
     this.perspCamera.position.set(px, py, pz);
     this.perspCamera.lookAt(this.target.x, 0, this.target.z);
+    this.perspCamera.updateMatrixWorld(true); // パン時のレイキャストが直後に古い行列を参照しないよう即時反映する
 
     if (this.sunLight) {
       this.sunLight.position.set(this.target.x + 8, 16, this.target.z + 6);
@@ -176,19 +323,29 @@ export class Renderer3D {
     }
   }
 
-  // 画面上のドラッグ量(dxScreen,dyScreen)を、現在のカメラの向きに応じたワールド平面上の
-  // 移動量に変換して注視点をずらす(=盤面自体を縦横にスライドさせる)
-  _panBy(dxScreen, dyScreen) {
-    const panScale = this.distance * 0.0018;
-    const forward = new THREE.Vector3();
-    this.perspCamera.getWorldDirection(forward);
-    forward.y = 0;
-    if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
-    forward.normalize();
-    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
-    const half = Math.max(1, this.size) * 0.9;
-    this.target.x = clamp(this.target.x - right.x * dxScreen * panScale + forward.x * dyScreen * panScale, -half, half);
-    this.target.z = clamp(this.target.z - right.z * dxScreen * panScale + forward.z * dyScreen * panScale, -half, half);
+  // 画面座標(キャンバス内ローカル座標)を地面(y=0)平面に投影し、指の下の地点が常に
+  // 指の下にとどまるように注視点を動かす(=1:1のドラッグでそのまま盤面をスライドさせる)
+  panScreen(sx, sy) {
+    const rect = this.canvas.getBoundingClientRect();
+    const ndcX = (sx / rect.width) * 2 - 1;
+    const ndcY = -(sy / rect.height) * 2 + 1;
+    this._raycaster.setFromCamera({ x: ndcX, y: ndcY }, this.perspCamera);
+    const point = new THREE.Vector3();
+    const hit = this._raycaster.ray.intersectPlane(this._groundPlane, point);
+    if (!hit) {
+      this._lastPanWorld = null;
+      return;
+    }
+    if (this._lastPanWorld) {
+      const half = Math.max(1, this.size) * 0.9;
+      this.target.x = clamp(this.target.x - (point.x - this._lastPanWorld.x), -half, half);
+      this.target.z = clamp(this.target.z - (point.z - this._lastPanWorld.z), -half, half);
+    }
+    this._lastPanWorld = { x: point.x, z: point.z };
+  }
+
+  panEnd() {
+    this._lastPanWorld = null;
   }
 
   screenToBoard(sx, sy) {
@@ -259,6 +416,8 @@ export class Renderer3D {
     disposeGroup(this.tileGroup);
     disposeGroup(this.decorGroup);
     this.tileMeshes = [];
+    this._waterMaterials = [];
+    this._grassTufts = [];
     const size = state.size;
     for (let gy = 0; gy < size; gy++) {
       for (let gx = 0; gx < size; gx++) {
@@ -267,7 +426,18 @@ export class Renderer3D {
         const height = terrain === TERRAIN.WATER ? 0.06 : BASE_THICKNESS + elevation;
         const centerY = terrain === TERRAIN.WATER ? -height / 2 : elevation - height / 2;
         const geo = new THREE.BoxGeometry(TILE_SIZE * 0.985, height, TILE_SIZE * 0.985);
-        const mat = new THREE.MeshStandardMaterial({ color: TERRAIN_COLORS[terrain], roughness: 0.85 });
+        const matOpts = { color: TERRAIN_COLORS[terrain], roughness: 0.85 };
+        if (terrain === TERRAIN.WATER) {
+          matOpts.map = createWaterTexture();
+          matOpts.color = 0xffffff;
+          matOpts.roughness = 0.35;
+          matOpts.metalness = 0.1;
+        } else if (terrain === TERRAIN.MOUNTAIN) {
+          matOpts.map = createRockTexture();
+          matOpts.color = 0xffffff;
+        }
+        const mat = new THREE.MeshStandardMaterial(matOpts);
+        if (terrain === TERRAIN.WATER) this._waterMaterials.push(mat);
         const mesh = new THREE.Mesh(geo, mat);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -298,6 +468,36 @@ export class Renderer3D {
       );
       cap.position.set(center.x, elevation + 0.14, center.z);
       this.decorGroup.add(cap);
+      // ごつごつした岩肌感を出すため、小さな不揃いの岩塊を根元に散らす
+      const rockMat = new THREE.MeshStandardMaterial({ map: createRockTexture(), color: 0xffffff, roughness: 0.95 });
+      for (let i = 0; i < 3; i++) {
+        const ang = (seed * 0.13 + i * 2.4) % (Math.PI * 2);
+        const dist = 0.28 + (i % 2) * 0.06;
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.07 + (i % 2) * 0.03, 0), rockMat);
+        rock.position.set(center.x + Math.cos(ang) * dist, elevation + 0.02, center.z + Math.sin(ang) * dist);
+        rock.rotation.set(seed * 0.01, ang, seed * 0.02);
+        rock.castShadow = true;
+        this.decorGroup.add(rock);
+      }
+    } else if (terrain === TERRAIN.PLAIN) {
+      // 風にそよぐ草むらを数株配置し、_startAmbientLoopで揺らす
+      const bladeMat = new THREE.MeshStandardMaterial({ color: 0x6fbf5f, roughness: 0.85, side: THREE.DoubleSide });
+      const count = seed % 2 === 0 ? 3 : 2;
+      for (let i = 0; i < count; i++) {
+        const tuft = new THREE.Group();
+        const bladeCount = 3;
+        for (let b = 0; b < bladeCount; b++) {
+          const blade = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.12 + (b % 2) * 0.03, 3), bladeMat);
+          blade.position.set((b - 1) * 0.03, 0.06, 0);
+          blade.rotation.z = (b - 1) * 0.35;
+          tuft.add(blade);
+        }
+        const ang = (seed * 0.7 + i * 2.1) % (Math.PI * 2);
+        const dist = 0.18 + (i % 2) * 0.12;
+        tuft.position.set(center.x + Math.cos(ang) * dist, elevation, center.z + Math.sin(ang) * dist);
+        this.decorGroup.add(tuft);
+        this._grassTufts.push({ mesh: tuft, phase: seed * 0.31 + i });
+      }
     }
   }
 

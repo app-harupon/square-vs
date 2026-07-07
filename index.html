@@ -31,16 +31,40 @@
 
   <!-- ===== メニュー画面 ===== -->
   <section id="menu-screen" class="screen" hidden>
-    <div class="menu-card">
+    <div id="menu-card" class="menu-card">
       <div class="gem-bar">
         <span id="gem-count">💎 0</span>
         <button id="shop-btn" class="btn btn-secondary btn-small">🛒 ショップ</button>
       </div>
       <h1 class="logo">⚔️ Square VS</h1>
       <p class="tagline">兵を分け、束ね、地を制す。</p>
-      <div id="mode-list" class="mode-list"></div>
-      <button id="story-btn" class="btn btn-secondary">📖 ストーリーモード</button>
-      <button id="online-btn" class="btn btn-secondary">🌐 オンライン対戦</button>
+
+      <!-- 最初の3択(CPU対戦・オンライン対戦・ストーリーモード) -->
+      <div id="top-mode-list" class="top-mode-list">
+        <button id="top-cpu-btn" class="top-mode-card cpu">
+          <span class="top-mode-icon">⚔️</span>
+          <b>CPU対戦</b>
+          <span>1人でオフライン対戦</span>
+        </button>
+        <button id="top-online-btn" class="top-mode-card online">
+          <span class="top-mode-icon">🌐</span>
+          <b>オンライン対戦</b>
+          <span>合言葉で友達と対戦</span>
+        </button>
+        <button id="top-story-btn" class="top-mode-card story">
+          <span class="top-mode-icon">📖</span>
+          <b>ストーリーモード</b>
+          <span>国盗り合戦キャンペーン</span>
+        </button>
+      </div>
+
+      <!-- CPU対戦選択時のみ表示するルール選択カルーセル -->
+      <div id="cpu-mode-panel" class="cpu-mode-panel" hidden>
+        <button id="cpu-mode-back-btn" class="carousel-back-btn">← もどる</button>
+        <div id="mode-list" class="mode-carousel"></div>
+        <div id="mode-list-dots" class="carousel-dots"></div>
+      </div>
+
       <button id="rules-btn" class="btn btn-ghost">遊び方</button>
       <button id="tutorial-btn" class="btn btn-ghost">🔰 チュートリアル</button>
       <button id="install-btn" class="btn btn-secondary" hidden>📲 ホーム画面に追加</button>
@@ -96,6 +120,18 @@
       </div>
     </footer>
   </section>
+
+  <!-- ===== カード使用カットイン ===== -->
+  <div id="card-cutin" class="card-cutin" hidden>
+    <div class="card-cutin-band">
+      <span id="card-cutin-icon" class="card-cutin-icon"></span>
+      <div class="card-cutin-text">
+        <span id="card-cutin-type" class="card-cutin-type"></span>
+        <b id="card-cutin-name" class="card-cutin-name"></b>
+        <span id="card-cutin-desc" class="card-cutin-desc"></span>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== 戦闘結果ポップアップ ===== -->
   <div id="combat-modal" class="modal-overlay" hidden>
@@ -303,7 +339,10 @@
   <!-- ===== 国盗り合戦: マス選択時のアクション ===== -->
   <div id="story-tile-modal" class="modal-overlay" hidden>
     <div class="modal-card">
-      <h2 id="story-tile-title">国名</h2>
+      <div class="story-tile-header">
+        <img id="story-tile-portrait" class="story-tile-portrait" alt="" />
+        <h2 id="story-tile-title">国名</h2>
+      </div>
       <p id="story-tile-desc" class="hint"></p>
       <div class="panel-actions">
         <button id="story-tile-attack-btn" class="btn btn-primary">⚔️ 攻める</button>

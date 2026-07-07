@@ -17,6 +17,7 @@ export class InputController {
     this.pointers = new Map();
     this.dragMoved = false;
     this.draggingSquad = null; // {x,y} タイル座標(つかんだ位置)
+    this.panning = false; // 盤面パン中かどうか(移動し続ける間ずっとtrueのまま)
     this.pendingPress = null; // 長押し判定待ちの押下(ドラッグ対象かどうかも保持しておく)
     this.longPressTimer = null;
     this.longPressFired = false;
@@ -71,6 +72,10 @@ export class InputController {
     }
     if (this.pointers.size === 2) {
       this.pendingPress = null;
+      if (this.panning) {
+        this.panning = false;
+        this.renderer.panEnd?.();
+      }
       clearTimeout(this.longPressTimer);
       const [a, b] = [...this.pointers.values()];
       this.lastPinchDist = dist(a, b);
@@ -93,12 +98,20 @@ export class InputController {
       return;
     }
 
+    if (this.panning && this.pointers.size === 1) {
+      // 指が動き続ける限り、毎回のmoveイベントで継続してパンし続ける(1:1で追従させる)
+      const { x, y } = this.localPos(e);
+      this.renderer.panScreen(x, y);
+      this.onCameraChange();
+      return;
+    }
+
     if (this.pendingPress && this.pointers.size === 1 && this.pendingPress.pointerId === e.pointerId) {
       const dx = e.clientX - this.pendingPress.startX;
       const dy = e.clientY - this.pendingPress.startY;
       if (Math.abs(dx) + Math.abs(dy) > LONG_PRESS_MOVE_TOLERANCE) {
         clearTimeout(this.longPressTimer);
-        const { tile, draggable } = this.pendingPress;
+        const { tile, draggable, startX, startY } = this.pendingPress;
         this.pendingPress = null;
         this.dragMoved = true;
         if (draggable) {
@@ -108,9 +121,12 @@ export class InputController {
           const nowTile = this.renderer.screenToBoard(x, y);
           this.onDragUpdate(x, y, nowTile.x, nowTile.y);
         } else {
-          // ドラッグ対象でなければ、従来通り盤面パンとして扱う
-          this.renderer.camera.x += e.movementX || 0;
-          this.renderer.camera.y += e.movementY || 0;
+          // ドラッグ対象でなければ、従来通り盤面パンとして扱う(押下開始位置を起点に1:1で追従)
+          this.panning = true;
+          const rect = this.canvas.getBoundingClientRect();
+          this.renderer.panScreen(startX - rect.left, startY - rect.top);
+          const { x, y } = this.localPos(e);
+          this.renderer.panScreen(x, y);
           this.onCameraChange();
         }
       }
@@ -151,6 +167,11 @@ export class InputController {
       this.onDragEnd(tile.x, tile.y, moved);
       this.pointers.delete(e.pointerId);
       return;
+    }
+
+    if (this.panning) {
+      this.panning = false;
+      this.renderer.panEnd?.();
     }
 
     clearTimeout(this.longPressTimer);

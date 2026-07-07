@@ -43,14 +43,21 @@ import {
 import { Renderer3D as Renderer } from './ui/render3d.js';
 import { InputController } from './ui/input.js';
 import { NetClient } from './net/client.js';
+import { getPortraitDataUrl } from './ui/portraits.js';
 
 const $ = (id) => document.getElementById(id);
 
 const splashScreen = $('splash-screen');
 const menuScreen = $('menu-screen');
+const menuCard = $('menu-card');
 const gameScreen = $('game-screen');
 const installBtn = $('install-btn');
 const modeList = $('mode-list');
+const topModeList = $('top-mode-list');
+const cpuModePanel = $('cpu-mode-panel');
+const topCpuBtn = $('top-cpu-btn');
+const cpuModeBackBtn = $('cpu-mode-back-btn');
+const modeListDots = $('mode-list-dots');
 const turnIndicator = $('turn-indicator');
 const canvas = $('board-canvas');
 const canvasWrap = $('canvas-wrap');
@@ -59,6 +66,12 @@ const deployPanel = $('deploy-panel');
 const battlePanel = $('battle-panel');
 const deployList = $('deploy-list');
 const cardHand = $('card-hand');
+const cardCutin = $('card-cutin');
+const cardCutinBand = document.querySelector('#card-cutin .card-cutin-band');
+const cardCutinIcon = $('card-cutin-icon');
+const cardCutinType = $('card-cutin-type');
+const cardCutinName = $('card-cutin-name');
+const cardCutinDesc = $('card-cutin-desc');
 const splitBtn = $('split-btn');
 const shootBtn = $('shoot-btn');
 const cardBtn = $('card-btn');
@@ -99,7 +112,7 @@ const gachaResultModal = $('gacha-result-modal');
 const gachaResultBody = $('gacha-result-body');
 const loginBonusModal = $('login-bonus-modal');
 const loginBonusText = $('login-bonus-text');
-const onlineBtn = $('online-btn');
+const onlineBtn = $('top-online-btn');
 const onlineModal = $('online-modal');
 const onlineCloseBtn = $('online-close-btn');
 const onlineSetupView = $('online-setup-view');
@@ -116,7 +129,7 @@ const turnorderModal = $('turnorder-modal');
 const turnorderChipA = $('turnorder-a');
 const turnorderChipB = $('turnorder-b');
 const turnorderResult = $('turnorder-result');
-const storyBtn = $('story-btn');
+const storyBtn = $('top-story-btn');
 const storyDifficultyModal = $('story-difficulty-modal');
 const storyDifficultyList = $('story-difficulty-list');
 const storyModal = $('story-modal');
@@ -127,6 +140,7 @@ const storyReserveEl = $('story-reserve');
 const storyTileModal = $('story-tile-modal');
 const storyTileTitle = $('story-tile-title');
 const storyTileDesc = $('story-tile-desc');
+const storyTilePortrait = $('story-tile-portrait');
 const storyTileAttackBtn = $('story-tile-attack-btn');
 const storyTileAllyBtn = $('story-tile-ally-btn');
 const storyTileCancelBtn = $('story-tile-cancel-btn');
@@ -188,18 +202,63 @@ let combatModalFromPeer = false;
 function showScreen(name) {
   menuScreen.hidden = name !== 'menu';
   gameScreen.hidden = name !== 'game';
+  if (name === 'menu') {
+    cpuModePanel.hidden = true;
+    topModeList.hidden = false;
+  }
 }
 
 function buildMenu() {
   modeList.innerHTML = '';
-  for (const mode of Object.values(MODES)) {
+  modeListDots.innerHTML = '';
+  Object.values(MODES).forEach((mode, i) => {
     const btn = document.createElement('button');
     btn.className = `mode-card ${mode.id}`;
     btn.innerHTML = `<b>${mode.name}</b><span>${mode.desc}</span>`;
     btn.addEventListener('click', () => startGame(mode.id));
     modeList.appendChild(btn);
-  }
+
+    const dot = document.createElement('span');
+    dot.addEventListener('click', () => scrollModeCarouselTo(i));
+    modeListDots.appendChild(dot);
+  });
 }
+
+let modeScrollTimer = null;
+function scrollModeCarouselTo(i) {
+  const card = modeList.children[i];
+  if (!card) return;
+  modeList.scrollTo({ left: card.offsetLeft - (modeList.clientWidth - card.clientWidth) / 2, behavior: 'smooth' });
+}
+function updateModeDots() {
+  if (!modeList.children.length) return;
+  const center = modeList.scrollLeft + modeList.clientWidth / 2;
+  let closest = 0;
+  let closestDist = Infinity;
+  [...modeList.children].forEach((card, i) => {
+    const cardCenter = card.offsetLeft + card.clientWidth / 2;
+    const d = Math.abs(cardCenter - center);
+    if (d < closestDist) {
+      closestDist = d;
+      closest = i;
+    }
+  });
+  [...modeListDots.children].forEach((dot, i) => dot.classList.toggle('active', i === closest));
+}
+modeList.addEventListener('scroll', () => {
+  clearTimeout(modeScrollTimer);
+  modeScrollTimer = setTimeout(updateModeDots, 60);
+});
+
+topCpuBtn.addEventListener('click', () => {
+  topModeList.hidden = true;
+  cpuModePanel.hidden = false;
+  requestAnimationFrame(updateModeDots);
+});
+cpuModeBackBtn.addEventListener('click', () => {
+  cpuModePanel.hidden = true;
+  topModeList.hidden = false;
+});
 
 function startGame(modeId) {
   isOnlineGame = false;
@@ -292,6 +351,7 @@ function openStoryTileModal(tileIndex) {
   const remaining = remainingTileCount(map, owners, nationId);
   const total = totalTileCount(map, nationId);
   storyTileTitle.textContent = `${nation.name}(${nation.monarch})`;
+  storyTilePortrait.src = getPortraitDataUrl(nationId);
   const capitalNote = isCapitalTile(map, tileIndex) ? ' 👑この国の首都です。落とせば残り領土を総取りできます!' : '';
   storyTileDesc.textContent = `${nation.desc} 残り領土 ${remaining}/${total}${capitalNote}`;
   const alreadyAllied = profile.storyAlliances.includes(nationId);
@@ -881,6 +941,7 @@ function renderCardHand(cards) {
     chip.addEventListener('click', () => {
       pushBattleHistory();
       playCard(game, myId, selection.squad, card.uid);
+      showCardCutin(card);
       const stillSelected = game.squads.find((s) => s.id === selection.squad.id);
       if (stillSelected && !stillSelected.actedThisTurn) {
         selectSquad(stillSelected);
@@ -894,6 +955,32 @@ function renderCardHand(cards) {
 }
 
 cardBtn.addEventListener('click', () => cardHand.classList.toggle('open'));
+
+// ---------- カード使用カットイン ----------
+const CARD_CUTIN_THEME = {
+  [UNIT_TYPES.INFANTRY]: { icon: '🛡️', label: '歩兵の秘策', c1: '#2d6a30', c2: '#7fd18a' },
+  [UNIT_TYPES.ARCHER]: { icon: '🏹', label: '弓兵の秘策', c1: '#8a5a00', c2: '#ffcf5c' },
+  [UNIT_TYPES.CAVALRY]: { icon: '🐎', label: '騎兵の秘策', c1: '#a83214', c2: '#ff8a5c' },
+  general: { icon: '👑', label: '軍師の秘策', c1: '#3d7fd6', c2: '#7fb8ff' },
+};
+let cardCutinTimer = null;
+function showCardCutin(card) {
+  const theme = CARD_CUTIN_THEME[card.unitType] || CARD_CUTIN_THEME.general;
+  cardCutinIcon.textContent = theme.icon;
+  cardCutinType.textContent = theme.label;
+  cardCutinName.textContent = card.name;
+  cardCutinDesc.textContent = card.desc;
+  cardCutinBand.style.setProperty('--cutin-c1', theme.c1);
+  cardCutinBand.style.setProperty('--cutin-c2', theme.c2);
+  cardCutin.hidden = true;
+  void cardCutin.offsetWidth; // アニメーションを毎回リスタートさせるための強制リフロー
+  cardCutin.hidden = false;
+  clearTimeout(cardCutinTimer);
+  cardCutinTimer = setTimeout(() => {
+    cardCutin.hidden = true;
+  }, 900);
+  vibrate(30);
+}
 
 // ---------- マスの説明 ----------
 const TERRAIN_INFO = {
@@ -1828,6 +1915,7 @@ const backGuardedOverlays = [
   gachaResultModal,
   loginBonusModal,
   tutorialModal,
+  cpuModePanel,
   shopModal,
   rulesModal,
   confirmModal,
@@ -1855,6 +1943,11 @@ window.addEventListener('popstate', () => {
 function closeTopmostOverlay() {
   if (tutorialModal && !tutorialModal.hidden) {
     closeTutorial();
+    return true;
+  }
+  if (cpuModePanel && !cpuModePanel.hidden) {
+    cpuModePanel.hidden = true;
+    topModeList.hidden = false;
     return true;
   }
   const overlays = [
@@ -1894,7 +1987,11 @@ function initSplash() {
   const finishSplash = () => {
     if (splashDone) return;
     splashDone = true;
-    splashScreen.hidden = true;
+    splashScreen.classList.add('closing');
+    menuCard.classList.add('menu-enter');
+    setTimeout(() => {
+      splashScreen.hidden = true;
+    }, 400);
     // 初回起動時はまずチュートリアルを見せ、閉じてからログインボーナスを表示する
     if (!profile.tutorialSeen) {
       openTutorial(() => showLoginBonusIfAny());
