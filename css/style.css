@@ -60,8 +60,11 @@ body {
 /* ---------- メニュー ---------- */
 #menu-screen {
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 24px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .menu-card {
