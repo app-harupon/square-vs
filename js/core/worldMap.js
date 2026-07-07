@@ -287,7 +287,7 @@ export function totalTileCount(map, nationId) {
 
 // 背景シミュレーション: プレイヤーが1戦する度に、隣接する非同盟国がプレイヤー領土を
 // 奪い返しにくる可能性を判定する(簡易な確率計算のみで、実際の戦術戦闘は行わない)
-export function simulateRivalIncursions(map, owners, alliances, nationLookup) {
+export function simulateRivalIncursions(map, owners, alliances, nationLookup, boostFactor = 1) {
   const capturedTiles = [];
   const playerTiles = [];
   for (let i = 0; i < owners.length; i++) {
@@ -299,8 +299,8 @@ export function simulateRivalIncursions(map, owners, alliances, nationLookup) {
       if (!attackerNation || attackerNation === 'player' || alliances.includes(attackerNation)) continue;
       const nation = nationLookup(attackerNation);
       if (!nation) continue;
-      // 総兵力が大きい国ほど侵攻してきやすい(あくまで簡易な確率判定)
-      const chance = Math.min(0.12, 0.02 + nation.totalTroops / 400000);
+      // 総兵力が大きい国ほど侵攻してきやすい(あくまで簡易な確率判定)。世界情勢の強化分も加味する
+      const chance = Math.min(0.12, 0.02 + (nation.totalTroops * boostFactor) / 400000);
       if (Math.random() < chance) {
         owners[tileIdx] = attackerNation;
         capturedTiles.push({ tileIndex: tileIdx, byNation: attackerNation });

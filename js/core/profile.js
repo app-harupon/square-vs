@@ -17,6 +17,7 @@ const DEFAULT_PROFILE = {
   muted: false, // BGM・効果音をミュートしているか
   storyLastGeneral: null, // 直近で選んだ大将キャラクターID(次回のデフォルト選択に使う)
   storyLastViceGenerals: [], // 直近で選んだ副将キャラクターIDの配列
+  storyBattlesCompleted: 0, // ストーリーモードで終えた領土の戦闘数(5戦ごとに世界中の国の兵力が10%増強される)
 };
 
 export function loadProfile() {

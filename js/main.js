@@ -27,7 +27,7 @@ import {
   other,
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
-import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter } from './core/story.js';
+import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter, effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold } from './core/story.js';
 import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops } from './core/storyBattle.js';
 import {
   generateWorldMap,
@@ -417,7 +417,7 @@ function startStoryBattle(tileIndex) {
   if (!nation) return;
   const total = totalTileCount(map, nationId);
   const difficulty = findDifficulty(profile.storyDifficulty);
-  const tileTroopCount = Math.max(500, Math.round((nation.totalTroops / total) * difficulty.scoreMultiplier));
+  const tileTroopCount = Math.max(500, Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier));
   const landmark = isCapitalTile(map, tileIndex) ? 'castle' : isFortressTile(map, tileIndex) ? 'fortress' : null;
   openCharacterSelect((generalId, viceIds) => {
     isOnlineGame = false;
@@ -1788,7 +1788,7 @@ function resolveStoryBattleOutcome(finishedGame, won) {
           extraTilesClaimed++;
         }
       }
-      const avgPerTile = nation.totalTroops / total;
+      const avgPerTile = effectiveNationTroops(nation, profile) / total;
       for (const type of Object.values(UNIT_TYPES)) {
         const gain = Math.round(avgPerTile * extraTilesClaimed * (nation.composition[type] || 0));
         if (gain > 0) {
@@ -1810,7 +1810,15 @@ function resolveStoryBattleOutcome(finishedGame, won) {
       : ` ${nation.name}の領土を1マス制圧しました(残り${remainingBefore - 1}/${total})。`;
   }
 
-  const incursions = simulateRivalIncursions(map, owners, profile.storyAlliances, findNation);
+  // 領土の戦闘を5回終えるごとに世界中の国の兵力が10%強化される(勝敗を問わずカウントする)
+  profile.storyBattlesCompleted = (profile.storyBattlesCompleted || 0) + 1;
+  if (justCrossedWorldBoostThreshold(profile.storyBattlesCompleted)) {
+    const boostPercent = Math.round((worldBoostFactor(profile) - 1) * 100);
+    text += ` 🌍世界情勢が変化し、すべての国の兵力が強化されました(合計+${boostPercent}%)!`;
+    playSfx('capital');
+  }
+
+  const incursions = simulateRivalIncursions(map, owners, profile.storyAlliances, findNation, worldBoostFactor(profile));
   if (incursions.length) {
     const names = incursions.map((inc) => findNation(inc.byNation)?.name || inc.byNation).join('・');
     text += ` その隙に${names}が領土を侵犯してきました!`;

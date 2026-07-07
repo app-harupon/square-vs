@@ -19,6 +19,26 @@ export function findDifficulty(id) {
   return STORY_DIFFICULTIES.find((d) => d.id === id) || STORY_DIFFICULTIES[2];
 }
 
+// 領土の戦闘を5回終えるごとに、世界中の国の兵力が10%ずつ強化されていく
+// (静かに待つより、どんどん攻め込んで戦況を動かした方が強い意味は持たせない。世界全体が変化していく演出)
+const WORLD_BOOST_BATTLES_PER_STEP = 5;
+const WORLD_BOOST_PER_STEP = 0.1;
+
+export function worldBoostFactor(profile) {
+  const battles = profile?.storyBattlesCompleted || 0;
+  return 1 + Math.floor(battles / WORLD_BOOST_BATTLES_PER_STEP) * WORLD_BOOST_PER_STEP;
+}
+
+// 戦闘回数が今まさに5の倍数を跨いだかどうか(1戦闘終了ごとに呼び、通知を出すタイミング判定に使う)
+export function justCrossedWorldBoostThreshold(battlesCompletedAfter) {
+  return battlesCompletedAfter > 0 && battlesCompletedAfter % WORLD_BOOST_BATTLES_PER_STEP === 0;
+}
+
+// 世界情勢による強化を反映した、その国の実効兵力
+export function effectiveNationTroops(nation, profile) {
+  return nation.totalTroops * worldBoostFactor(profile);
+}
+
 // プレイヤーの故国。最初の戦力構成の元になる(長槍歩兵のみの小さな軍)
 export const PLAYER_NATION = {
   id: 'reimei',
