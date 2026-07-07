@@ -6,8 +6,19 @@ import { generateNationSquadTemplates } from './rules.js';
 import { createSquad } from './squad.js';
 import { PLAYER_NATION } from './story.js';
 
-const STORY_BOARD_SIZE = 30;
-const STORY_DEPLOY_DEPTH = 3;
+// 両軍合わせた兵力規模に応じて盤面サイズを決める(小規模な合戦を無駄に広い盤で戦わせないため)
+function boardSizeFor(combinedTroops) {
+  if (combinedTroops >= 20000) return { boardSize: 30, deployDepth: 3 };
+  if (combinedTroops >= 5000) return { boardSize: 15, deployDepth: 2 };
+  return { boardSize: 7, deployDepth: 1 };
+}
+
+export function getPlayerTotalTroops(profile) {
+  const reserve = profile?.storyReserve || {};
+  const hasReserve = Object.values(reserve).some((v) => v > 0);
+  if (!hasReserve) return PLAYER_NATION.totalTroops;
+  return Object.values(reserve).reduce((sum, v) => sum + v, 0) + 100; // +100は将軍自身の分
+}
 
 function dominantType(ratios) {
   return Object.values(UNIT_TYPES).reduce((best, type) =>
@@ -42,10 +53,12 @@ function generatePlayerSquadTemplates(ownerId, profile) {
 // tileTroopCount: このマス(領土1つ分、およそ2000人の駐留軍)を守る敵兵力。
 // 国の総兵力をそのまま使うのではなく、マス単位の駐留軍规模で1回の合戦を構成する。
 export function createStoryGame(nation, tileTroopCount, profile = null) {
-  const grid = generateTerrain(STORY_BOARD_SIZE, STORY_DEPLOY_DEPTH);
+  const combinedTroops = getPlayerTotalTroops(profile) + tileTroopCount;
+  const { boardSize, deployDepth } = boardSizeFor(combinedTroops);
+  const grid = generateTerrain(boardSize, deployDepth);
   const state = {
-    mode: { id: 'story', name: 'ストーリーモード', boardSize: STORY_BOARD_SIZE, deployDepth: STORY_DEPLOY_DEPTH },
-    size: STORY_BOARD_SIZE,
+    mode: { id: 'story', name: 'ストーリーモード', boardSize, deployDepth },
+    size: boardSize,
     grid,
     squads: [],
     players: {

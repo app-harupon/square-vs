@@ -38,6 +38,7 @@ import {
   simulateRivalIncursions,
   simulateGreatPowerDynamics,
   isNeutralTile,
+  isCapitalTile,
 } from './core/worldMap.js';
 import { Renderer3D as Renderer } from './ui/render3d.js';
 import { InputController } from './ui/input.js';
@@ -253,6 +254,7 @@ function buildStoryMap() {
       if (attackable.has(i)) tile.classList.add('attackable');
       else if (owner !== 'player') tile.classList.add('locked');
     }
+    if (isCapitalTile(map, i) && owner !== 'player') tile.classList.add('capital');
     if (nationId && owner !== 'player' && attackable.has(i)) {
       if (isNeutralTile(map, owners, i)) {
         tile.title = '無主化した土地(戦闘なしでそのまま制圧できます)';
@@ -283,7 +285,8 @@ function openStoryTileModal(tileIndex) {
   const remaining = remainingTileCount(map, owners, nationId);
   const total = totalTileCount(map, nationId);
   storyTileTitle.textContent = `${nation.name}(${nation.monarch})`;
-  storyTileDesc.textContent = `${nation.desc} 残り領土 ${remaining}/${total}`;
+  const capitalNote = isCapitalTile(map, tileIndex) ? ' 👑この国の首都です。落とせば残り領土を総取りできます!' : '';
+  storyTileDesc.textContent = `${nation.desc} 残り領土 ${remaining}/${total}${capitalNote}`;
   const alreadyAllied = profile.storyAlliances.includes(nationId);
   storyTileAllyBtn.hidden = alreadyAllied;
   storyTileModal.hidden = false;
@@ -1544,16 +1547,39 @@ function resolveStoryBattleOutcome(finishedGame, won) {
   if (won) {
     const total = totalTileCount(map, nation.id);
     const remainingBefore = remainingTileCount(map, owners, nation.id);
-    const isLastTerritory = remainingBefore <= 1;
+    const capturedCapital = isCapitalTile(map, tileIndex);
+    const isLastTerritory = remainingBefore <= 1 || capturedCapital;
     const absorbed = applyStoryVictory(finishedGame, profile, isLastTerritory);
     owners[tileIndex] = 'player';
+
+    if (capturedCapital && remainingBefore > 1) {
+      // 首都陥落: 残りの領土もまとめて総取りする(平均駐留軍を兵種比率で概算して追加吸収する)
+      let extraTilesClaimed = 0;
+      for (let i = 0; i < owners.length; i++) {
+        if (owners[i] === nation.id) {
+          owners[i] = 'player';
+          extraTilesClaimed++;
+        }
+      }
+      const avgPerTile = nation.totalTroops / total;
+      for (const type of Object.values(UNIT_TYPES)) {
+        const gain = Math.round(avgPerTile * extraTilesClaimed * (nation.composition[type] || 0));
+        if (gain > 0) {
+          profile.storyReserve[type] = (profile.storyReserve[type] || 0) + gain;
+          absorbed[type] = (absorbed[type] || 0) + gain;
+        }
+      }
+    }
+
     const absorbedText = Object.entries(absorbed)
       .map(([type, n]) => `${UNIT_STATS[type].label}${n}`)
       .join('・');
-    resultTitle.textContent = `${nation.monarch}の守備隊を撃破!`;
+    resultTitle.textContent = capturedCapital ? `${nation.monarch}の首都を陥落!` : `${nation.monarch}の守備隊を撃破!`;
     text += absorbedText ? ` 降伏兵(${absorbedText})を吸収しました。` : '';
-    text += isLastTerritory
-      ? ` ${nation.name}を完全に平定しました!`
+    text += capturedCapital
+      ? remainingBefore > 1
+        ? ` 首都陥落により${nation.name}を総取りしました(残り${remainingBefore - 1}マスもまとめて制圧)!`
+        : ` ${nation.name}を完全に平定しました!`
       : ` ${nation.name}の領土を1マス制圧しました(残り${remainingBefore - 1}/${total})。`;
   }
 
@@ -1817,6 +1843,7 @@ function registerServiceWorker() {
     });
   }
 }
+
 
 
 

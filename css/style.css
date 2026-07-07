@@ -452,6 +452,15 @@ body {
   justify-content: center;
   font-size: 0.6rem;
 }
+.story-map-tile.capital::before {
+  content: '👑';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  font-size: 0.65rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
 @keyframes storyTilePulse {
   0%, 100% { box-shadow: 0 0 0 2px rgba(255, 225, 77, 0.5); }
   50% { box-shadow: 0 0 0 2px rgba(255, 225, 77, 1); }

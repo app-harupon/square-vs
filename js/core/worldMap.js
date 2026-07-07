@@ -101,7 +101,45 @@ export function generateWorldMap() {
   fillRemainingGaps(tiles);
 
   const owners = tiles.map((nationId) => (nationId === PLAYER_NATION.id ? 'player' : nationId));
-  return { width: MAP_WIDTH, height: MAP_HEIGHT, tiles, owners };
+  const capitals = computeCapitals(tiles);
+  return { width: MAP_WIDTH, height: MAP_HEIGHT, tiles, owners, capitals };
+}
+
+// 各国の領土のうち、最も中心に近いマスを首都に定める(首都を落とすと国ごと総取りできる)
+function computeCapitals(tiles) {
+  const byNation = {};
+  for (let i = 0; i < tiles.length; i++) {
+    const n = tiles[i];
+    if (!n) continue;
+    (byNation[n] = byNation[n] || []).push(i);
+  }
+  const capitals = {};
+  for (const [nationId, indices] of Object.entries(byNation)) {
+    let best = indices[0];
+    let bestScore = Infinity;
+    for (const i of indices) {
+      const ix = i % MAP_WIDTH;
+      const iy = Math.floor(i / MAP_WIDTH);
+      let sumDist = 0;
+      for (const j of indices) {
+        const jx = j % MAP_WIDTH;
+        const jy = Math.floor(j / MAP_WIDTH);
+        sumDist += Math.abs(ix - jx) + Math.abs(iy - jy);
+      }
+      if (sumDist < bestScore) {
+        bestScore = sumDist;
+        best = i;
+      }
+    }
+    capitals[nationId] = best;
+  }
+  return capitals;
+}
+
+// 指定したマスが、その国の首都かどうか
+export function isCapitalTile(map, tileIndex) {
+  const nationId = map.tiles[tileIndex];
+  return !!nationId && map.capitals[nationId] === tileIndex;
 }
 
 // ブロブ配置後に残った空白マスを、隣接する国の領土で塗り広げて埋め尽くす
@@ -146,18 +184,35 @@ function neighborsOf(i) {
   return result;
 }
 
-// 現在プレイヤーが領有しているマスに隣接する、まだ他国(同盟国以外)が支配しているマスの一覧
-// (無主化(中立)したマスも、隣接していれば無血で取り込める対象として含める)
+// 現在プレイヤーが領有しているマスから、同盟国の領土を素通りしつつ辿り着ける「国境」の一覧。
+// 同盟国の領土は通行自由(素通り)として扱うため、隣接国が1カ国しかない状態で同盟を結んでも、
+// その先にある別の国へちゃんと攻め込めるようになる(そこで詰んでしまうのを防ぐ)。
+// (無主化(中立)したマスも、たどり着ければ無血で取り込める対象として含める)
 export function getAttackableTiles(map, owners, alliances) {
   const attackable = new Set();
+  const visited = new Set();
+  const queue = [];
   for (let i = 0; i < owners.length; i++) {
-    if (owners[i] !== 'player') continue;
+    if (owners[i] === 'player') {
+      queue.push(i);
+      visited.add(i);
+    }
+  }
+  while (queue.length) {
+    const i = queue.shift();
     for (const n of neighborsOf(i)) {
+      if (visited.has(n)) continue;
       const ownerNation = owners[n];
-      if (ownerNation && ownerNation !== 'player' && !alliances.includes(ownerNation)) {
+      if (ownerNation === 'player' || (ownerNation && alliances.includes(ownerNation))) {
+        // 自国・同盟国の領土は素通りして、その先の探索を続ける
+        visited.add(n);
+        queue.push(n);
+      } else if (ownerNation && !alliances.includes(ownerNation)) {
         attackable.add(n);
+        visited.add(n);
       } else if (ownerNation === null && map.tiles[n]) {
         attackable.add(n); // 大国同士の争いで無主化したマス(戦闘なしで制圧できる)
+        visited.add(n);
       }
     }
   }

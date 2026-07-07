@@ -31,7 +31,10 @@ export class Renderer3D {
     this.azimuth = Math.PI / 4;
     this.polar = 0.85; // 0に近いほど真上から、大きいほど横から見た感じになる
     this.distance = 10;
-    this.camera = { x: 0, y: 0, scale: 1 }; // input.js互換のダミー(パン操作を簡易オービットへ変換する)
+    this.target = { x: 0, z: 0 }; // カメラが注視する(=盤面をスライドさせる)ワールド座標上の点
+    this.camera = { x: 0, y: 0, scale: 1 }; // input.js互換: 1本指ドラッグの蓄積量(差分をパンに変換する)
+    this._lastCameraX = 0;
+    this._lastCameraY = 0;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xdfeeff);
@@ -119,20 +122,43 @@ export class Renderer3D {
     const distV = halfExtent / Math.tan(vFov / 2);
     const distH = halfExtent / Math.tan(hFov / 2);
     this.distance = Math.max(distV, distH, 6);
+    this.target.x = 0;
+    this.target.z = 0;
     this.camera.x = 0;
     this.camera.y = 0;
+    this._lastCameraX = 0;
+    this._lastCameraY = 0;
   }
 
   _updateCamera() {
-    // camera.x/yはinput.jsの1本指パン操作からの蓄積値をゆるくオービットへ変換する互換ハック
-    const azimuth = this.azimuth + this.camera.x * 0.006;
-    const polar = Math.max(0.25, Math.min(1.4, this.polar - this.camera.y * 0.004));
+    // camera.x/yはinput.jsの1本指ドラッグの蓄積量。前回からの差分だけを盤面のスライド(パン)に変換する
+    const dx = this.camera.x - this._lastCameraX;
+    const dy = this.camera.y - this._lastCameraY;
+    this._lastCameraX = this.camera.x;
+    this._lastCameraY = this.camera.y;
+    if (dx || dy) this._panBy(dx, dy);
+
     const r = this.distance;
-    const px = r * Math.sin(polar) * Math.sin(azimuth);
-    const pz = r * Math.sin(polar) * Math.cos(azimuth);
-    const py = r * Math.cos(polar);
+    const px = this.target.x + r * Math.sin(this.polar) * Math.sin(this.azimuth);
+    const pz = this.target.z + r * Math.sin(this.polar) * Math.cos(this.azimuth);
+    const py = r * Math.cos(this.polar);
     this.perspCamera.position.set(px, py, pz);
-    this.perspCamera.lookAt(0, 0, 0);
+    this.perspCamera.lookAt(this.target.x, 0, this.target.z);
+  }
+
+  // 画面上のドラッグ量(dxScreen,dyScreen)を、現在のカメラの向きに応じたワールド平面上の
+  // 移動量に変換して注視点をずらす(=盤面自体を縦横にスライドさせる)
+  _panBy(dxScreen, dyScreen) {
+    const panScale = this.distance * 0.0018;
+    const forward = new THREE.Vector3();
+    this.perspCamera.getWorldDirection(forward);
+    forward.y = 0;
+    if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+    forward.normalize();
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+    const half = Math.max(1, this.size) * 0.9;
+    this.target.x = clamp(this.target.x - right.x * dxScreen * panScale + forward.x * dyScreen * panScale, -half, half);
+    this.target.z = clamp(this.target.z - right.z * dxScreen * panScale + forward.z * dyScreen * panScale, -half, half);
   }
 
   screenToBoard(sx, sy) {
@@ -317,6 +343,10 @@ export class Renderer3D {
       }
     }
   }
+}
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
 }
 
 function disposeGroup(group) {
