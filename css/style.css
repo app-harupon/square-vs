@@ -373,6 +373,14 @@ body {
 .modal-card h2 { margin-top: 0; }
 .modal-scroll { text-align: left; }
 
+.tutorial-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
+.tutorial-dots span { width: 7px; height: 7px; border-radius: 50%; background: #dfe3ea; transition: background 0.2s, transform 0.2s; }
+.tutorial-dots span.active { background: var(--accent, #3d7fd6); transform: scale(1.25); }
+#tutorial-body { min-height: 88px; }
+#tutorial-body .tutorial-emoji { font-size: 2.2rem; text-align: center; margin-bottom: 8px; }
+.tutorial-nav { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
+.tutorial-nav .btn { flex: 1; }
+
 .combat-body .side { margin-bottom: 12px; padding: 10px; border-radius: var(--radius-md); background: #f5f6ff; }
 .combat-body .side.attacker { background: #eaf3ff; }
 .combat-body .side.defender { background: #fff0ee; }

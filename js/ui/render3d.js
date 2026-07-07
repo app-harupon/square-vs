@@ -8,7 +8,8 @@ import { isConcealedFrom } from '../core/rules.js';
 import { UNIT_TYPES } from '../core/units.js';
 
 const TILE_SIZE = 1;
-const ELEVATION_UNIT = { [TERRAIN.HILL]: 0.22, [TERRAIN.MOUNTAIN]: 0.55 };
+const ELEVATION_UNIT = { [TERRAIN.HILL]: 0.32, [TERRAIN.MOUNTAIN]: 0.85 };
+const BASE_THICKNESS = 0.34;
 
 const TERRAIN_COLORS = {
   [TERRAIN.PLAIN]: 0xbfe89a,
@@ -29,7 +30,7 @@ export class Renderer3D {
     this.animations = new Map();
 
     this.azimuth = Math.PI / 4;
-    this.polar = 0.85; // 0に近いほど真上から、大きいほど横から見た感じになる
+    this.polar = 1.05; // 0に近いほど真上から、大きいほど横から見た感じになる(斜め見下ろしを強めて立体感を強調)
     this.distance = 10;
     this.target = { x: 0, z: 0 }; // カメラが注視する(=盤面をスライドさせる)ワールド座標上の点
     this.camera = { x: 0, y: 0, scale: 1 }; // input.js互換: 1本指ドラッグの蓄積量(差分をパンに変換する)
@@ -38,15 +39,29 @@ export class Renderer3D {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xdfeeff);
+    this.scene.fog = new THREE.Fog(0xdfeeff, 16, 62); // 遠景をわずかにかすませて奥行きを強調する
     this.perspCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
     this.renderer3 = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.renderer3.setPixelRatio(this.dpr);
+    this.renderer3.shadowMap.enabled = true;
+    this.renderer3.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.7);
-    sun.position.set(6, 10, 4);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+    sun.position.set(8, 16, 6);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 90;
+    sun.shadow.camera.left = -50;
+    sun.shadow.camera.right = 50;
+    sun.shadow.camera.top = 50;
+    sun.shadow.camera.bottom = -50;
+    sun.shadow.bias = -0.0015;
     this.scene.add(sun);
+    this.scene.add(sun.target);
+    this.sunLight = sun;
 
     this.tileGroup = new THREE.Group();
     this.decorGroup = new THREE.Group();
@@ -113,7 +128,7 @@ export class Renderer3D {
   fitBoard(size) {
     this.size = size;
     this.azimuth = Math.PI / 4;
-    this.polar = 0.85;
+    this.polar = 1.05;
     // 縦横比(特に縦長のスマホ画面)を考慮し、盤面全体が収まる距離を計算する
     const halfExtent = Math.max(1, (size - 1) / 2) * Math.SQRT2 + 1.4;
     const vFov = (this.perspCamera.fov * Math.PI) / 180;
@@ -122,6 +137,14 @@ export class Renderer3D {
     const distV = halfExtent / Math.tan(vFov / 2);
     const distH = halfExtent / Math.tan(hFov / 2);
     this.distance = Math.max(distV, distH, 6);
+    // 距離に応じてカメラの描画距離とフォグの効き始め/終わりを調整する(遠景が消えたり靄で潰れたりしないように)
+    const farClip = Math.max(150, this.distance * 2.2);
+    this.perspCamera.far = farClip;
+    this.perspCamera.updateProjectionMatrix();
+    if (this.scene.fog) {
+      this.scene.fog.near = Math.max(16, this.distance * 1.35);
+      this.scene.fog.far = Math.max(62, this.distance * 2.1);
+    }
     this.target.x = 0;
     this.target.z = 0;
     this.camera.x = 0;
@@ -144,6 +167,11 @@ export class Renderer3D {
     const py = r * Math.cos(this.polar);
     this.perspCamera.position.set(px, py, pz);
     this.perspCamera.lookAt(this.target.x, 0, this.target.z);
+
+    if (this.sunLight) {
+      this.sunLight.position.set(this.target.x + 8, 16, this.target.z + 6);
+      this.sunLight.target.position.set(this.target.x, 0, this.target.z);
+    }
   }
 
   // 画面上のドラッグ量(dxScreen,dyScreen)を、現在のカメラの向きに応じたワールド平面上の
@@ -230,7 +258,6 @@ export class Renderer3D {
     disposeGroup(this.decorGroup);
     this.tileMeshes = [];
     const size = state.size;
-    const BASE_THICKNESS = 0.2;
     for (let gy = 0; gy < size; gy++) {
       for (let gx = 0; gx < size; gx++) {
         const terrain = state.grid[gy][gx].terrain;
@@ -240,6 +267,8 @@ export class Renderer3D {
         const geo = new THREE.BoxGeometry(TILE_SIZE * 0.96, height, TILE_SIZE * 0.96);
         const mat = new THREE.MeshStandardMaterial({ color: TERRAIN_COLORS[terrain], roughness: 0.9 });
         const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         const center = this.tileCenter(gx, gy, 0);
         mesh.position.set(center.x, centerY, center.z);
         mesh.userData = { gx, gy };

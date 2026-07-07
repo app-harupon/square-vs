@@ -76,6 +76,13 @@ const splitSlider = $('split-slider');
 const splitALabel = $('split-a-label');
 const splitBLabel = $('split-b-label');
 const rulesModal = $('rules-modal');
+const tutorialModal = $('tutorial-modal');
+const tutorialDots = $('tutorial-dots');
+const tutorialTitle = $('tutorial-title');
+const tutorialBody = $('tutorial-body');
+const tutorialSkipBtn = $('tutorial-skip-btn');
+const tutorialNextBtn = $('tutorial-next-btn');
+const tutorialBtn = $('tutorial-btn');
 const confirmModal = $('confirm-modal');
 const confirmMessage = $('confirm-message');
 const confirmYesBtn = $('confirm-yes-btn');
@@ -1636,6 +1643,56 @@ $('menu-btn').addEventListener('click', () => {
 $('rules-btn').addEventListener('click', () => (rulesModal.hidden = false));
 $('rules-close-btn').addEventListener('click', () => (rulesModal.hidden = true));
 
+// ---------- 初回チュートリアル(スキップ可) ----------
+const TUTORIAL_SLIDES = [
+  { emoji: '⚔️', title: 'Square VSへようこそ', body: '兵を分けたり束ねたりしながら、盤面のマスを制圧していく対戦ゲームです。まずは基本の流れをサクッと確認しましょう。' },
+  { emoji: '🚩', title: '配置フェーズ', body: '対戦が始まったら、自分の陣地に部隊をドラッグして配置します。「ランダム自動配置」で一気に済ませることもできます。' },
+  { emoji: '👉', title: '移動・攻撃', body: '部隊をタップして選択すると、移動・攻撃できるマスが光ります。行き先や敵部隊をタップして実行しましょう。' },
+  { emoji: '🔺', title: '三すくみ', body: '歩兵 > 騎兵 > 弓兵 > 歩兵 の相性関係があります。有利な兵種をぶつけて戦いを優位に進めましょう。' },
+  { emoji: '🌲', title: '地形の活用', body: '丘・山にいる部隊は防御が有利に。林にいる部隊は敵から兵種が見えなくなり、奇襲のチャンスになります。' },
+  { emoji: '✂️', title: '分隊・統合', body: '「分隊」で兵を分けて多方面に展開できます。同じ兵種の部隊同士は隣接させるだけで自動的に統合されます。' },
+  { emoji: '👑', title: '勝利条件', body: '敵の大将を討ち取れば勝利!全部隊が行動し終えると自動的に相手の番になります。それでは早速遊んでみましょう!' },
+];
+let tutorialIndex = 0;
+let tutorialOnDone = null;
+
+function renderTutorialSlide() {
+  const slide = TUTORIAL_SLIDES[tutorialIndex];
+  tutorialTitle.textContent = slide.title;
+  tutorialBody.innerHTML = `<div class="tutorial-emoji">${slide.emoji}</div><p>${slide.body}</p>`;
+  tutorialDots.innerHTML = TUTORIAL_SLIDES.map((_, i) => `<span class="${i === tutorialIndex ? 'active' : ''}"></span>`).join('');
+  tutorialNextBtn.textContent = tutorialIndex === TUTORIAL_SLIDES.length - 1 ? 'はじめる!' : '次へ';
+}
+
+function openTutorial(onDone = null) {
+  tutorialIndex = 0;
+  tutorialOnDone = onDone;
+  renderTutorialSlide();
+  tutorialModal.hidden = false;
+}
+
+function closeTutorial() {
+  tutorialModal.hidden = true;
+  if (!profile.tutorialSeen) {
+    profile.tutorialSeen = true;
+    saveProfile(profile);
+  }
+  const cb = tutorialOnDone;
+  tutorialOnDone = null;
+  cb?.();
+}
+
+tutorialNextBtn.addEventListener('click', () => {
+  if (tutorialIndex < TUTORIAL_SLIDES.length - 1) {
+    tutorialIndex++;
+    renderTutorialSlide();
+  } else {
+    closeTutorial();
+  }
+});
+tutorialSkipBtn.addEventListener('click', closeTutorial);
+tutorialBtn.addEventListener('click', () => openTutorial());
+
 // ---------- ジェム・ショップ(実際の課金は行わないシミュレーション) ----------
 function updateGemDisplay() {
   gemCountEl.textContent = `💎 ${profile.gems}`;
@@ -1770,6 +1827,7 @@ installBtn.addEventListener('click', async () => {
 const backGuardedOverlays = [
   gachaResultModal,
   loginBonusModal,
+  tutorialModal,
   shopModal,
   rulesModal,
   confirmModal,
@@ -1795,6 +1853,10 @@ window.addEventListener('popstate', () => {
 });
 
 function closeTopmostOverlay() {
+  if (tutorialModal && !tutorialModal.hidden) {
+    closeTutorial();
+    return true;
+  }
   const overlays = [
     gachaResultModal,
     loginBonusModal,
@@ -1825,12 +1887,20 @@ buildMenu();
 showScreen('menu');
 registerServiceWorker();
 updateGemDisplay();
-showLoginBonusIfAny();
 initSplash();
 
 function initSplash() {
+  let splashDone = false;
   const finishSplash = () => {
+    if (splashDone) return;
+    splashDone = true;
     splashScreen.hidden = true;
+    // 初回起動時はまずチュートリアルを見せ、閉じてからログインボーナスを表示する
+    if (!profile.tutorialSeen) {
+      openTutorial(() => showLoginBonusIfAny());
+    } else {
+      showLoginBonusIfAny();
+    }
   };
   splashScreen.addEventListener('click', finishSplash, { once: true });
   setTimeout(finishSplash, 2400);

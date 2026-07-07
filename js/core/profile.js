@@ -13,6 +13,7 @@ const DEFAULT_PROFILE = {
   storyMap: null, // { width, height, tiles: 国別の元々の領有国, owners } (キャンペーン開始時に1回だけ生成して固定)
   storyAlliances: [], // プレイヤーと同盟を結んだ国のID一覧
   storyDifficulty: null, // 選択した難易度ID(キャンペーン開始時に1回だけ選ぶ)
+  tutorialSeen: false, // 初回チュートリアルを見た(またはスキップした)かどうか
 };
 
 export function loadProfile() {

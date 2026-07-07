@@ -42,6 +42,7 @@
       <button id="story-btn" class="btn btn-secondary">📖 ストーリーモード</button>
       <button id="online-btn" class="btn btn-secondary">🌐 オンライン対戦</button>
       <button id="rules-btn" class="btn btn-ghost">遊び方</button>
+      <button id="tutorial-btn" class="btn btn-ghost">🔰 チュートリアル</button>
       <button id="install-btn" class="btn btn-secondary" hidden>📲 ホーム画面に追加</button>
     </div>
   </section>
@@ -181,6 +182,19 @@
         <p>歩兵&gt;騎兵&gt;弓兵&gt;歩兵 の三すくみに注意。丘・山は防御有利、林からの奇襲は一度きり効果的です。</p>
       </div>
       <button id="rules-close-btn" class="btn btn-primary">わかった</button>
+    </div>
+  </div>
+
+  <!-- ===== 初回チュートリアル(スキップ可) ===== -->
+  <div id="tutorial-modal" class="modal-overlay" hidden>
+    <div class="modal-card modal-scroll">
+      <div id="tutorial-dots" class="tutorial-dots"></div>
+      <h2 id="tutorial-title"></h2>
+      <div id="tutorial-body" class="rules-text"></div>
+      <div class="tutorial-nav">
+        <button id="tutorial-skip-btn" class="btn btn-ghost">スキップ</button>
+        <button id="tutorial-next-btn" class="btn btn-primary">次へ</button>
+      </div>
     </div>
   </div>
 
