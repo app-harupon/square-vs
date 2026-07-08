@@ -1,11 +1,10 @@
-// Web Audio APIによる完全プロシージャル生成のBGM・効果音エンジン。
+// Web Audio APIによる完全プロシージャル生成の効果音エンジン(SEのみ、BGMは無し)。
 // 外部音声ファイルは一切使わず、その場でオシレーターから波形を合成する
 // (このプロジェクト全体の「アセットは全部コードで生成する」方針に合わせている)。
 
 let ctx = null;
 let masterGain = null;
 let sfxGain = null;
-let bgmGain = null;
 let muted = false;
 let unlocked = false;
 
@@ -18,24 +17,16 @@ function getCtx() {
     sfxGain = ctx.createGain();
     sfxGain.gain.value = 0.5;
     sfxGain.connect(masterGain);
-    bgmGain = ctx.createGain();
-    bgmGain.gain.value = 0.22;
-    bgmGain.connect(masterGain);
   }
   return ctx;
 }
 
-// ブラウザの自動再生制限を回避するため、最初のユーザー操作でAudioContextを起動する。
-// その時点でBGM再生の予約(playBgmが先に呼ばれていた場合)があれば、ここで実際に鳴らし始める。
+// ブラウザの自動再生制限を回避するため、最初のユーザー操作でAudioContextを起動する
 export function unlockAudio() {
   if (unlocked) return;
   unlocked = true;
   const c = getCtx();
   if (c.state === 'suspended') c.resume().catch(() => {});
-  if (bgmCurrentTrack) {
-    const track = bgmCurrentTrack;
-    scheduleBgmLoop(track);
-  }
 }
 
 export function setMuted(value) {
@@ -127,101 +118,4 @@ export function playSfx(name) {
   } catch {
     // AudioContextが何らかの理由で使えない環境では何もしない
   }
-}
-
-// ---------- BGM(短い和音進行をループさせる簡易シーケンサー) ----------
-// 各トラックは [周波数(null=休符), 拍数] の配列。1拍 = beatSec 秒。
-const NOTE = { C4: 261.6, D4: 293.7, E4: 329.6, F4: 349.2, G4: 392.0, A4: 440.0, B4: 493.9, C5: 523.3, D5: 587.3, E5: 659.3, G3: 196.0, A3: 220.0, C3: 130.8, D3: 146.8, E3: 164.8, F3: 174.6 };
-
-const BGM_TRACKS = {
-  menu: {
-    beatSec: 0.42,
-    lead: [
-      [NOTE.C4, 1], [NOTE.E4, 1], [NOTE.G4, 1], [NOTE.E4, 1],
-      [NOTE.A4, 1], [NOTE.G4, 1], [NOTE.E4, 1], [NOTE.D4, 1],
-      [NOTE.F4, 1], [NOTE.A4, 1], [NOTE.G4, 1], [NOTE.E4, 1],
-      [NOTE.D4, 1], [NOTE.C4, 1], [NOTE.D4, 1], [NOTE.G3, 1],
-    ],
-    bass: [
-      [NOTE.C3, 4], [NOTE.A3, 4], [NOTE.F3, 4], [NOTE.G3, 4],
-    ],
-  },
-  battle: {
-    beatSec: 0.28,
-    lead: [
-      [NOTE.D4, 1], [NOTE.D4, 1], [NOTE.F4, 1], [NOTE.D4, 1],
-      [NOTE.A4, 1], [NOTE.F4, 1], [NOTE.D4, 1], [null, 1],
-      [NOTE.E4, 1], [NOTE.E4, 1], [NOTE.G4, 1], [NOTE.E4, 1],
-      [NOTE.C5, 1], [NOTE.G4, 1], [NOTE.E4, 1], [null, 1],
-    ],
-    bass: [
-      [NOTE.D3, 2], [NOTE.D3, 2], [NOTE.A3, 2], [NOTE.A3, 2],
-      [NOTE.E3, 2], [NOTE.E3, 2], [NOTE.A3, 2], [NOTE.A3, 2],
-    ],
-  },
-  story: {
-    beatSec: 0.38,
-    lead: [
-      [NOTE.G4, 1.5], [NOTE.E4, 0.5], [NOTE.D4, 1], [NOTE.C4, 1],
-      [NOTE.D4, 1], [NOTE.E4, 1], [NOTE.G4, 1.5], [NOTE.A4, 0.5],
-      [NOTE.G4, 1], [NOTE.E4, 1], [NOTE.D4, 1.5], [null, 0.5],
-    ],
-    bass: [
-      [NOTE.C3, 4], [NOTE.G3, 4], [NOTE.A3, 4], [NOTE.F3, 4],
-    ],
-  },
-};
-
-let bgmTimer = null;
-let bgmCurrentTrack = null;
-
-function scheduleBgmLoop(trackName) {
-  const track = BGM_TRACKS[trackName];
-  if (!track || muted === undefined) return;
-  const c = getCtx();
-  const startAt = c.currentTime + 0.05;
-  const playLine = (notes, gainScale, type) => {
-    let t = startAt;
-    for (const [freq, beats] of notes) {
-      const dur = beats * track.beatSec;
-      if (freq) {
-        const osc = c.createOscillator();
-        const g = c.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(gainScale, t + 0.02);
-        g.gain.setValueAtTime(gainScale, t + dur * 0.7);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.98);
-        osc.connect(g);
-        g.connect(bgmGain);
-        osc.start(t);
-        osc.stop(t + dur);
-      }
-      t += dur;
-    }
-    return t;
-  };
-  const leadEnd = playLine(track.lead, 0.5, 'triangle');
-  playLine(track.bass, 0.35, 'sine');
-  const totalBeats = track.lead.reduce((sum, [, b]) => sum + b, 0);
-  const loopDurationMs = totalBeats * track.beatSec * 1000;
-  bgmTimer = setTimeout(() => {
-    if (bgmCurrentTrack === trackName) scheduleBgmLoop(trackName);
-  }, loopDurationMs);
-}
-
-export function playBgm(trackName) {
-  if (!BGM_TRACKS[trackName]) return;
-  if (bgmCurrentTrack === trackName) return;
-  stopBgm();
-  bgmCurrentTrack = trackName;
-  if (!unlocked) return; // アンロック前は曲名だけ覚えておき、unlockAudio後に自動再開する
-  scheduleBgmLoop(trackName);
-}
-
-export function stopBgm() {
-  clearTimeout(bgmTimer);
-  bgmTimer = null;
-  bgmCurrentTrack = null;
 }

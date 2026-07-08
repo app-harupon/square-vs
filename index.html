@@ -243,27 +243,17 @@
   <div id="shop-modal" class="modal-overlay" hidden>
     <div class="modal-card modal-scroll">
       <h2>🛒 ショップ</h2>
-      <p class="hint">ジェムを使ってプレミアムなカード・武将をガチャで解放できます(実際の課金は発生しません)</p>
+      <p class="hint">ジェムを使って武将カードをガチャで手に入れられます(実際の課金は発生しません)</p>
       <div class="gem-bar"><span id="shop-gem-count">💎 0</span></div>
 
       <div class="shop-section">
-        <h3>🎴 カードガチャ <span class="cost">近日公開</span></h3>
-        <p class="hint">歩兵・弓兵・騎兵・大将それぞれの特別なカードが手に入ります</p>
-        <button id="card-gacha-btn" class="btn btn-primary" disabled>近日公開</button>
-        <div id="card-owned-list" class="owned-list"></div>
-      </div>
-
-      <div class="shop-section">
-        <h3>👑 武将ガチャ <span class="cost">近日公開</span></h3>
-        <p class="hint">兵種を名将化すると、その兵種が大将になった時ランク+1されます</p>
-        <button id="general-gacha-btn" class="btn btn-primary" disabled>近日公開</button>
-        <div id="general-owned-list" class="owned-list"></div>
-      </div>
-
-      <div class="shop-section">
-        <h3>🎴 武将カードガチャ <span class="cost">💎<span id="character-gacha-cost"></span></span></h3>
-        <p class="hint">ストーリーモードに登場する武将のカードが手に入ります。同じ武将のカードを10枚集めると仲間になりCPU対戦で使えるようになり、20枚集めると能力がアップします。</p>
-        <button id="character-gacha-btn" class="btn btn-primary">ガチャを引く</button>
+        <h3>🎴 武将カードガチャ</h3>
+        <p class="hint">ストーリーモードに登場する武将のカードが手に入ります。1枚引くだけでその武将が仲間になりCPU対戦で使えるようになり、10枚集めるごとに能力がアップし続けます。</p>
+        <div class="gacha-btn-row">
+          <button id="character-gacha-btn" class="btn btn-primary">1回引く<br /><span class="cost">💎<span id="character-gacha-cost"></span></span></button>
+          <button id="character-gacha10-btn" class="btn btn-primary gacha-btn-ten">10連引く<br /><span class="cost">💎<span id="character-gacha10-cost"></span></span></button>
+        </div>
+        <p id="character-gacha-first-hint" class="hint gacha-first-hint" hidden>✨初回10連は特別価格!</p>
         <div id="character-owned-list" class="character-owned-list"></div>
       </div>
 
@@ -272,11 +262,36 @@
   </div>
 
   <!-- ===== ガチャ結果 ===== -->
-  <div id="gacha-result-modal" class="modal-overlay" hidden>
-    <div class="modal-card">
-      <h2>🎉 獲得!</h2>
-      <div id="gacha-result-body"></div>
-      <button id="gacha-result-close-btn" class="btn btn-primary">OK</button>
+  <div id="gacha-pull-modal" class="modal-overlay gacha-pull-overlay" hidden>
+    <div class="gacha-pull-stage">
+      <div id="gacha-pull-progress" class="gacha-pull-progress"></div>
+
+      <div id="gacha-capsule" class="gacha-capsule">
+        <div class="gacha-capsule-glow"></div>
+        <div class="gacha-capsule-icon">🎴</div>
+        <p class="gacha-capsule-hint">タップして開封</p>
+      </div>
+
+      <div id="gacha-reveal-card" class="gacha-reveal-card" hidden>
+        <div id="gacha-reveal-burst" class="gacha-reveal-burst"></div>
+        <img id="gacha-reveal-portrait" class="gacha-reveal-portrait" alt="" />
+        <div id="gacha-reveal-rarity" class="gacha-reveal-rarity"></div>
+        <div id="gacha-reveal-name" class="gacha-reveal-name"></div>
+        <div id="gacha-reveal-title" class="gacha-reveal-title hint"></div>
+        <div id="gacha-reveal-skill" class="gacha-reveal-skill hint"></div>
+        <div id="gacha-reveal-milestone" class="gacha-reveal-milestone hint"></div>
+      </div>
+
+      <div id="gacha-summary" class="gacha-summary" hidden>
+        <h2>🎉 10連ガチャ結果</h2>
+        <div id="gacha-summary-grid" class="gacha-summary-grid"></div>
+      </div>
+
+      <div class="gacha-pull-actions">
+        <button id="gacha-pull-next-btn" class="btn btn-primary" hidden>次へ</button>
+        <button id="gacha-pull-skip-btn" class="btn btn-ghost">すべて表示</button>
+        <button id="gacha-pull-close-btn" class="btn btn-primary" hidden>閉じる</button>
+      </div>
     </div>
   </div>
 

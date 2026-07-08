@@ -14,7 +14,7 @@ const DEFAULT_PROFILE = {
   storyAlliances: [], // プレイヤーと同盟を結んだ国のID一覧
   storyDifficulty: null, // 選択した難易度ID(キャンペーン開始時に1回だけ選ぶ)
   tutorialSeen: false, // 初回チュートリアルを見た(またはスキップした)かどうか
-  muted: false, // BGM・効果音をミュートしているか
+  muted: false, // 効果音をミュートしているか
   storyLastGeneral: null, // 直近で選んだ大将キャラクターID(次回のデフォルト選択に使う)
   storyLastViceGenerals: [], // 直近で選んだ副将キャラクターIDの配列
   storyBattlesCompleted: 0, // ストーリーモードで終えた領土の戦闘数(5戦ごとに世界中の国の兵力が10%増強される)
@@ -23,6 +23,7 @@ const DEFAULT_PROFILE = {
   useCardsInCpuBattle: false, // 通常CPU対戦で「カードあり」を選んだかどうか(次回のデフォルトに使う)
   cpuLastGeneral: null, // 通常CPU対戦で直近に選んだ大将キャラクターID
   cpuLastViceGenerals: [], // 通常CPU対戦で直近に選んだ副将キャラクターIDの配列
+  characterGacha10Used: false, // 武将カードガチャの10連を1度でも引いたか(初回だけ特別価格になる)
 };
 
 export function loadProfile() {

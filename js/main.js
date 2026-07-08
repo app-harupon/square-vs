@@ -2,7 +2,7 @@ import { MODES, getMode } from './core/modes.js';
 import { canSplit, canMerge } from './core/squad.js';
 import { isAdjacent } from './core/board.js';
 import { TERRAIN } from './core/terrain.js';
-import { MIN_ACTIVE_SOLDIERS, MAX_SQUAD_SIZE, UNIT_TYPES, PREMIUM_CARD_DEFS, GENERAL_UPGRADE_TYPES, UNIT_STATS } from './core/units.js';
+import { MIN_ACTIVE_SOLDIERS, MAX_SQUAD_SIZE, UNIT_TYPES, UNIT_STATS } from './core/units.js';
 import { loadProfile, saveProfile, checkLoginBonus, spendGems } from './core/profile.js';
 import {
   createGame,
@@ -47,7 +47,7 @@ import { Renderer3D as Renderer } from './ui/render3d.js';
 import { InputController } from './ui/input.js';
 import { NetClient } from './net/client.js';
 import { getPortraitDataUrl } from './ui/portraits.js';
-import { unlockAudio, playSfx, playBgm, stopBgm, setMuted, isMuted } from './audio/sound.js';
+import { unlockAudio, playSfx, setMuted, isMuted } from './audio/sound.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -111,15 +111,27 @@ const gemCountEl = $('gem-count');
 const shopBtn = $('shop-btn');
 const shopModal = $('shop-modal');
 const shopGemCountEl = $('shop-gem-count');
-const cardGachaBtn = $('card-gacha-btn');
-const generalGachaBtn = $('general-gacha-btn');
-const cardOwnedList = $('card-owned-list');
-const generalOwnedList = $('general-owned-list');
 const characterGachaBtn = $('character-gacha-btn');
+const characterGacha10Btn = $('character-gacha10-btn');
+const characterGachaFirstHint = $('character-gacha-first-hint');
 const characterOwnedList = $('character-owned-list');
 const characterGachaCostEl = $('character-gacha-cost');
-const gachaResultModal = $('gacha-result-modal');
-const gachaResultBody = $('gacha-result-body');
+const characterGacha10CostEl = $('character-gacha10-cost');
+const gachaPullModal = $('gacha-pull-modal');
+const gachaPullProgress = $('gacha-pull-progress');
+const gachaCapsule = $('gacha-capsule');
+const gachaRevealCard = $('gacha-reveal-card');
+const gachaRevealPortrait = $('gacha-reveal-portrait');
+const gachaRevealRarity = $('gacha-reveal-rarity');
+const gachaRevealName = $('gacha-reveal-name');
+const gachaRevealTitle = $('gacha-reveal-title');
+const gachaRevealSkill = $('gacha-reveal-skill');
+const gachaRevealMilestone = $('gacha-reveal-milestone');
+const gachaSummary = $('gacha-summary');
+const gachaSummaryGrid = $('gacha-summary-grid');
+const gachaPullNextBtn = $('gacha-pull-next-btn');
+const gachaPullSkipBtn = $('gacha-pull-skip-btn');
+const gachaPullCloseBtn = $('gacha-pull-close-btn');
 const loginBonusModal = $('login-bonus-modal');
 const loginBonusText = $('login-bonus-text');
 const onlineBtn = $('top-online-btn');
@@ -160,9 +172,9 @@ const storyTileAttackBtn = $('story-tile-attack-btn');
 const storyTileAllyBtn = $('story-tile-ally-btn');
 const storyTileCancelBtn = $('story-tile-cancel-btn');
 
-const CARD_GACHA_COST = 150;
-const GENERAL_GACHA_COST = 200;
-const CHARACTER_GACHA_COST = 150;
+const CHARACTER_GACHA_COST = 300;
+const CHARACTER_GACHA_TEN_COST = 2500;
+const CHARACTER_GACHA_TEN_FIRST_COST = 500;
 
 let profile = loadProfile();
 
@@ -222,9 +234,6 @@ function showScreen(name) {
   if (name === 'menu') {
     cpuModePanel.hidden = true;
     topModeList.hidden = false;
-    playBgm('menu');
-  } else if (name === 'game') {
-    playBgm('battle');
   }
 }
 
@@ -567,7 +576,6 @@ function buildStoryDifficultyList() {
       storyDifficultyModal.hidden = true;
       buildStoryMap();
       storyModal.hidden = false;
-      playBgm('story');
     });
     storyDifficultyList.appendChild(card);
   }
@@ -581,11 +589,9 @@ storyBtn.addEventListener('click', () => {
   }
   buildStoryMap();
   storyModal.hidden = false;
-  playBgm('story');
 });
 storyCloseBtn.addEventListener('click', () => {
   storyModal.hidden = true;
-  playBgm('menu');
 });
 
 function enterGameScreen() {
@@ -1814,7 +1820,6 @@ function showResult() {
   }
   resultModal.hidden = false;
   playSfx(game.winner === myId ? 'victory' : game.winner === 'draw' ? 'error' : 'defeat');
-  stopBgm();
   vibrate(game.winner === myId ? [40, 60, 40, 60, 80] : [200]);
 }
 
@@ -1985,30 +1990,13 @@ function updateGemDisplay() {
 
 function refreshShopUI() {
   updateGemDisplay();
-  // ガチャは近日公開のため、所持ジェムに関わらず常に押せない状態にしておく
-  cardGachaBtn.disabled = true;
-  generalGachaBtn.disabled = true;
 
-  cardOwnedList.innerHTML = '';
-  for (const def of Object.values(PREMIUM_CARD_DEFS)) {
-    const owned = profile.unlockedCards.includes(def.id);
-    const chip = document.createElement('span');
-    chip.className = 'owned-chip' + (owned ? '' : ' locked');
-    chip.textContent = owned ? `${def.name} 入手済み` : `${def.name} 未入手`;
-    cardOwnedList.appendChild(chip);
-  }
-
-  generalOwnedList.innerHTML = '';
-  for (const type of GENERAL_UPGRADE_TYPES) {
-    const owned = profile.unlockedGenerals.includes(type);
-    const chip = document.createElement('span');
-    chip.className = 'owned-chip' + (owned ? '' : ' locked');
-    chip.textContent = owned ? `${UNIT_STATS[type].label}の名将 入手済み` : `${UNIT_STATS[type].label}の名将 未入手`;
-    generalOwnedList.appendChild(chip);
-  }
-
+  const ten_cost = profile.characterGacha10Used ? CHARACTER_GACHA_TEN_COST : CHARACTER_GACHA_TEN_FIRST_COST;
   characterGachaCostEl.textContent = CHARACTER_GACHA_COST;
+  characterGacha10CostEl.textContent = ten_cost;
   characterGachaBtn.disabled = profile.gems < CHARACTER_GACHA_COST;
+  characterGacha10Btn.disabled = profile.gems < ten_cost;
+  characterGachaFirstHint.hidden = !!profile.characterGacha10Used;
   characterOwnedList.innerHTML = '';
   const sorted = [...CHARACTER_CARDS].sort((a, b) =>
     b.rarity - a.rarity || (profile.characterCardCounts[b.id] || 0) - (profile.characterCardCounts[a.id] || 0)
@@ -2035,34 +2023,12 @@ shopBtn.addEventListener('click', () => {
 });
 $('shop-close-btn').addEventListener('click', () => (shopModal.hidden = true));
 
-function showGachaResult(title, desc) {
-  gachaResultBody.innerHTML = `<p><b>${title}</b></p><p class="hint">${desc}</p>`;
-  gachaResultModal.hidden = false;
-}
-$('gacha-result-close-btn').addEventListener('click', () => (gachaResultModal.hidden = true));
+// ---------- 武将カードガチャの演出(カプセルをタップして開封し、レアリティに応じた光の演出で結果を見せる) ----------
+const RARITY_COLOR = { 5: '#ffb300', 4: '#c77dff', 3: '#4ea8de', 2: '#7fd18a', 1: '#bbbbbb' };
+let gachaQueue = [];
+let gachaQueueIndex = 0;
 
-cardGachaBtn.addEventListener('click', () => {
-  const locked = Object.values(PREMIUM_CARD_DEFS).filter((c) => !profile.unlockedCards.includes(c.id));
-  if (!locked.length || !spendGems(profile, CARD_GACHA_COST)) return;
-  const won = locked[Math.floor(Math.random() * locked.length)];
-  profile.unlockedCards.push(won.id);
-  saveProfile(profile);
-  refreshShopUI();
-  showGachaResult(`🎴 ${won.name}`, won.desc);
-});
-
-generalGachaBtn.addEventListener('click', () => {
-  const locked = GENERAL_UPGRADE_TYPES.filter((t) => !profile.unlockedGenerals.includes(t));
-  if (!locked.length || !spendGems(profile, GENERAL_GACHA_COST)) return;
-  const won = locked[Math.floor(Math.random() * locked.length)];
-  profile.unlockedGenerals.push(won);
-  saveProfile(profile);
-  refreshShopUI();
-  showGachaResult(`👑 ${UNIT_STATS[won].label}の名将`, `${UNIT_STATS[won].label}が大将の時、ランク+1されます`);
-});
-
-characterGachaBtn.addEventListener('click', () => {
-  if (!spendGems(profile, CHARACTER_GACHA_COST)) return;
+function pullCharacterGachaOnce() {
   const won = CHARACTER_CARDS[Math.floor(Math.random() * CHARACTER_CARDS.length)];
   const wasUnlocked = profile.unlockedCharacters.includes(won.id);
   const bonusBefore = characterCollectionBonus(profile.characterCardCounts[won.id] || 0);
@@ -2072,29 +2038,133 @@ characterGachaBtn.addEventListener('click', () => {
   const justUnlocked = !wasUnlocked && count >= CHARACTER_GACHA_UNLOCK_COUNT;
   const justBoosted = bonusAfter > bonusBefore;
   if (justUnlocked) profile.unlockedCharacters.push(won.id);
+  return { char: won, count, justUnlocked, justBoosted, bonus: bonusAfter };
+}
+
+characterGachaBtn.addEventListener('click', () => {
+  if (!spendGems(profile, CHARACTER_GACHA_COST)) return;
+  const result = pullCharacterGachaOnce();
   saveProfile(profile);
   refreshShopUI();
-  showCharacterGachaResult(won, count, justUnlocked, justBoosted, bonusAfter);
+  startGachaPullSequence([result]);
 });
 
-function showCharacterGachaResult(char, count, justUnlocked, justBoosted, bonus) {
-  const remainToUnlock = CHARACTER_GACHA_UNLOCK_COUNT - count;
+characterGacha10Btn.addEventListener('click', () => {
+  const cost = profile.characterGacha10Used ? CHARACTER_GACHA_TEN_COST : CHARACTER_GACHA_TEN_FIRST_COST;
+  if (!spendGems(profile, cost)) return;
+  profile.characterGacha10Used = true;
+  const results = [];
+  for (let i = 0; i < 10; i++) results.push(pullCharacterGachaOnce());
+  saveProfile(profile);
+  refreshShopUI();
+  startGachaPullSequence(results);
+});
+
+function startGachaPullSequence(results) {
+  gachaQueue = results;
+  gachaQueueIndex = 0;
+  gachaSummary.hidden = true;
+  gachaPullModal.hidden = false;
+  showNextCapsule();
+}
+
+function updateGachaProgress() {
+  gachaPullProgress.textContent = gachaQueue.length > 1 ? `${gachaQueueIndex + 1} / ${gachaQueue.length}` : '';
+}
+
+function showNextCapsule() {
+  updateGachaProgress();
+  gachaRevealCard.hidden = true;
+  gachaCapsule.hidden = false;
+  gachaPullNextBtn.hidden = true;
+  gachaPullCloseBtn.hidden = true;
+  gachaPullSkipBtn.hidden = gachaQueue.length <= 1;
+}
+
+gachaCapsule.addEventListener('click', () => {
+  gachaCapsule.classList.add('opening');
+  playSfx('tap');
+  setTimeout(() => {
+    gachaCapsule.classList.remove('opening');
+    revealCurrentCard();
+  }, 260);
+});
+
+function revealCurrentCard() {
+  const { char, count, justUnlocked, justBoosted, bonus } = gachaQueue[gachaQueueIndex];
+  gachaCapsule.hidden = true;
+  gachaRevealCard.style.setProperty('--rarity-color', RARITY_COLOR[char.rarity] || '#ccc');
+  gachaRevealPortrait.src = getPortraitDataUrl(char.id);
+  gachaRevealRarity.textContent = RARITY_LABEL[char.rarity];
+  gachaRevealName.textContent = char.name;
+  gachaRevealTitle.textContent = char.title;
+  gachaRevealSkill.textContent = `✨${char.skillName}: ${char.skillDesc}`;
   const remainToNextBoost = CHARACTER_GACHA_STEP - (count % CHARACTER_GACHA_STEP || CHARACTER_GACHA_STEP);
-  const milestoneText = justBoosted
-    ? `<p class="hint">⭐${char.name}の能力がアップしました!(追加ランク+${bonus})</p>`
+  gachaRevealMilestone.textContent = justBoosted
+    ? `⭐能力アップ!(追加ランク+${bonus})`
     : justUnlocked
-      ? `<p class="hint">🤝${char.name}が仲間になりました!CPU対戦の「カードあり」で使えます。</p>`
-      : count < CHARACTER_GACHA_UNLOCK_COUNT
-        ? `<p class="hint">${char.name}のカード: ${count}枚(仲間になるまであと${remainToUnlock}枚)</p>`
-        : `<p class="hint">${char.name}のカード: ${count}枚(次の能力アップまであと${remainToNextBoost}枚)</p>`;
-  gachaResultBody.innerHTML = `
-    <img src="${getPortraitDataUrl(char.id)}" alt="" style="width:72px;height:72px;border-radius:50%;display:block;margin:0 auto 10px;" />
-    <p><b>${RARITY_LABEL[char.rarity]}<br>${char.name}(${char.title})</b></p>
-    <p class="hint">✨${char.skillName}: ${char.skillDesc}</p>
-    ${milestoneText}
-  `;
-  gachaResultModal.hidden = false;
-  playSfx(justUnlocked || justBoosted ? 'capital' : 'cardUse');
+      ? '🤝仲間になりました!'
+      : `次の能力アップまであと${remainToNextBoost}枚`;
+  gachaRevealCard.hidden = false;
+  // アニメーションを毎回リスタートさせるための強制リフロー
+  gachaRevealCard.style.animation = 'none';
+  void gachaRevealCard.offsetWidth;
+  gachaRevealCard.style.animation = '';
+
+  const isLast = gachaQueueIndex >= gachaQueue.length - 1;
+  gachaPullSkipBtn.hidden = isLast || gachaQueue.length <= 1;
+  gachaPullNextBtn.hidden = false;
+  gachaPullNextBtn.textContent = isLast ? (gachaQueue.length > 1 ? '結果一覧へ' : '閉じる') : '次へ';
+  gachaPullCloseBtn.hidden = true;
+
+  playSfx(char.rarity >= 4 ? 'capital' : justUnlocked || justBoosted ? 'cardUse' : 'tap');
+  vibrate(char.rarity >= 4 ? [30, 40, 30] : 20);
+}
+
+gachaPullNextBtn.addEventListener('click', () => {
+  if (gachaQueueIndex >= gachaQueue.length - 1) {
+    finishGachaSequence();
+  } else {
+    gachaQueueIndex++;
+    showNextCapsule();
+  }
+});
+
+gachaPullSkipBtn.addEventListener('click', () => {
+  finishGachaSequence();
+});
+
+gachaPullCloseBtn.addEventListener('click', () => {
+  gachaPullModal.hidden = true;
+});
+
+function finishGachaSequence() {
+  if (gachaQueue.length <= 1) {
+    gachaPullModal.hidden = true;
+    return;
+  }
+  gachaCapsule.hidden = true;
+  gachaRevealCard.hidden = true;
+  gachaPullProgress.textContent = '';
+  gachaSummaryGrid.innerHTML = '';
+  gachaQueue.forEach((result, i) => {
+    const { char, justUnlocked } = result;
+    const item = document.createElement('div');
+    item.className = 'gacha-summary-item' + (justUnlocked ? ' gacha-new' : '');
+    item.style.setProperty('--rarity-color', RARITY_COLOR[char.rarity] || '#ccc');
+    item.style.animationDelay = `${i * 0.05}s`;
+    item.innerHTML = `
+      <img src="${getPortraitDataUrl(char.id)}" alt="" />
+      <span class="gacha-summary-rarity">${RARITY_LABEL[char.rarity]}</span>
+      <span class="gacha-summary-name">${char.name}</span>
+    `;
+    gachaSummaryGrid.appendChild(item);
+  });
+  gachaSummary.hidden = false;
+  gachaPullNextBtn.hidden = true;
+  gachaPullSkipBtn.hidden = true;
+  gachaPullCloseBtn.hidden = false;
+  playSfx('victory');
 }
 
 function showLoginBonusIfAny() {
@@ -2166,7 +2236,7 @@ installBtn.addEventListener('click', async () => {
 // モーダル/ゲーム画面が「表示される」たびに履歴を1つ積んでおき、戻るボタンでは
 // それを消費して該当レイヤーを閉じるだけにする(閉じるボタン側の処理は変更不要)
 const backGuardedOverlays = [
-  gachaResultModal,
+  gachaPullModal,
   loginBonusModal,
   tutorialModal,
   cpuModePanel,
@@ -2205,7 +2275,7 @@ function closeTopmostOverlay() {
     return true;
   }
   const overlays = [
-    gachaResultModal,
+    gachaPullModal,
     loginBonusModal,
     shopModal,
     rulesModal,
@@ -2229,7 +2299,7 @@ function closeTopmostOverlay() {
   return false;
 }
 
-// ---------- サウンド(BGM・効果音) ----------
+// ---------- サウンド(効果音) ----------
 setMuted(!!profile.muted);
 updateMuteButton();
 function updateMuteButton() {

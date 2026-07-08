@@ -123,8 +123,8 @@ export function findCharacterCard(id) {
 
 export const RARITY_LABEL = { 5: '☆☆☆☆☆', 4: '☆☆☆☆', 3: '☆☆☆', 2: '☆☆', 1: '☆' };
 
-// ガチャで同じ武将カードが何枚集まると仲間になるか(以降は10枚ごとに能力が少しずつ上がり続ける)
-export const CHARACTER_GACHA_UNLOCK_COUNT = 10;
+// ガチャで武将カードを1枚引くだけでその武将が仲間になる。10枚ごとに能力が少しずつ上がり続ける
+export const CHARACTER_GACHA_UNLOCK_COUNT = 1;
 export const CHARACTER_GACHA_STEP = 10;
 
 // 集めた枚数に応じた追加ランクボーナス(10枚ごとに+1、上限なし)
