@@ -40,6 +40,7 @@ import {
   isNeutralTile,
   isCapitalTile,
   isFortressTile,
+  ensureMapExtras,
 } from './core/worldMap.js';
 import { Renderer3D as Renderer } from './ui/render3d.js';
 import { InputController } from './ui/input.js';
@@ -297,6 +298,10 @@ function startOnlineGameAsGuest(state) {
 function ensureStoryMap() {
   if (!profile.storyMap) {
     profile.storyMap = generateWorldMap();
+    saveProfile(profile);
+  } else if (!profile.storyMap.capitals || !profile.storyMap.fortresses) {
+    // 王都・砦の仕組みを追加する前に作られた古いセーブデータを補完する
+    ensureMapExtras(profile.storyMap);
     saveProfile(profile);
   }
   return profile.storyMap;

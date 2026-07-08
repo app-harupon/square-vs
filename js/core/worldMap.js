@@ -106,6 +106,14 @@ export function generateWorldMap() {
   return { width: MAP_WIDTH, height: MAP_HEIGHT, tiles, owners, capitals, fortresses };
 }
 
+// 王都・砦の仕組みを追加する前に生成された古い保存データ(capitals/fortressesが無い)を
+// その場で補完する。既存プレイヤーのセーブデータが壊れて読み込めなくなるのを防ぐための移行処理。
+export function ensureMapExtras(map) {
+  if (!map.capitals) map.capitals = computeCapitals(map.tiles);
+  if (!map.fortresses) map.fortresses = computeFortresses(map.tiles, map.capitals);
+  return map;
+}
+
 // 各国の領土のうち、最も中心に近いマスを首都に定める(首都を落とすと国ごと総取りできる)
 function computeCapitals(tiles) {
   const byNation = {};
@@ -140,7 +148,7 @@ function computeCapitals(tiles) {
 // 指定したマスが、その国の首都かどうか
 export function isCapitalTile(map, tileIndex) {
   const nationId = map.tiles[tileIndex];
-  return !!nationId && map.capitals[nationId] === tileIndex;
+  return !!nationId && map.capitals?.[nationId] === tileIndex;
 }
 
 // 領土が3マス以上ある国には、首都から最も離れたマスに前線の砦(出城)を1つ置く。
