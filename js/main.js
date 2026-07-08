@@ -114,9 +114,19 @@ const shopGemCountEl = $('shop-gem-count');
 const characterGachaBtn = $('character-gacha-btn');
 const characterGacha10Btn = $('character-gacha10-btn');
 const characterGachaFirstHint = $('character-gacha-first-hint');
-const characterOwnedList = $('character-owned-list');
 const characterGachaCostEl = $('character-gacha-cost');
 const characterGacha10CostEl = $('character-gacha10-cost');
+const collectionSummaryEl = $('collection-summary');
+const openCollectionBtn = $('open-collection-btn');
+const collectionModal = $('collection-modal');
+const collectionCloseBtn = $('collection-close-btn');
+const collectionSort = $('collection-sort');
+const collectionFilterStatus = $('collection-filter-status');
+const collectionFilterRarity = $('collection-filter-rarity');
+const collectionFilterType = $('collection-filter-type');
+const collectionFilterNation = $('collection-filter-nation');
+const collectionCountSummary = $('collection-count-summary');
+const collectionList = $('collection-list');
 const gachaPullModal = $('gacha-pull-modal');
 const gachaPullProgress = $('gacha-pull-progress');
 const gachaCapsule = $('gacha-capsule');
@@ -1988,6 +1998,21 @@ function updateGemDisplay() {
   shopGemCountEl.textContent = `💎 ${profile.gems}`;
 }
 
+function buildCharacterProgressRow(char) {
+  const count = profile.characterCardCounts[char.id] || 0;
+  const unlocked = profile.unlockedCharacters.includes(char.id);
+  const bonus = characterCollectionBonus(count);
+  const row = document.createElement('div');
+  row.className = 'char-progress-row' + (bonus > 0 ? ' enhanced' : unlocked ? ' unlocked' : ' locked-row');
+  const statusText = unlocked ? `🤝仲間${bonus > 0 ? `(+${bonus})` : ''}` : `未仲間(あと${CHARACTER_GACHA_UNLOCK_COUNT - count}枚)`;
+  row.innerHTML = `
+    <img src="${getPortraitDataUrl(char.id)}" alt="" />
+    <span class="char-progress-name">${RARITY_LABEL[char.rarity]} ${char.name}<span class="hint">(${char.title})</span></span>
+    <span class="char-progress-count">${statusText} ${count}枚</span>
+  `;
+  return row;
+}
+
 function refreshShopUI() {
   updateGemDisplay();
 
@@ -1997,24 +2022,7 @@ function refreshShopUI() {
   characterGachaBtn.disabled = profile.gems < CHARACTER_GACHA_COST;
   characterGacha10Btn.disabled = profile.gems < ten_cost;
   characterGachaFirstHint.hidden = !!profile.characterGacha10Used;
-  characterOwnedList.innerHTML = '';
-  const sorted = [...CHARACTER_CARDS].sort((a, b) =>
-    b.rarity - a.rarity || (profile.characterCardCounts[b.id] || 0) - (profile.characterCardCounts[a.id] || 0)
-  );
-  for (const char of sorted) {
-    const count = profile.characterCardCounts[char.id] || 0;
-    const unlocked = profile.unlockedCharacters.includes(char.id);
-    const bonus = characterCollectionBonus(count);
-    const row = document.createElement('div');
-    row.className = 'char-progress-row' + (bonus > 0 ? ' enhanced' : unlocked ? ' unlocked' : '');
-    const statusText = unlocked ? `🤝仲間${bonus > 0 ? `(+${bonus})` : ''}` : `未仲間(あと${CHARACTER_GACHA_UNLOCK_COUNT - count}枚)`;
-    row.innerHTML = `
-      <img src="${getPortraitDataUrl(char.id)}" alt="" />
-      <span class="char-progress-name">${RARITY_LABEL[char.rarity]} ${char.name}<span class="hint">(${char.title})</span></span>
-      <span class="char-progress-count">${statusText} ${count}枚</span>
-    `;
-    characterOwnedList.appendChild(row);
-  }
+  collectionSummaryEl.textContent = `所持キャラ: ${profile.unlockedCharacters.length} / ${CHARACTER_CARDS.length}`;
 }
 
 shopBtn.addEventListener('click', () => {
@@ -2022,6 +2030,55 @@ shopBtn.addEventListener('click', () => {
   shopModal.hidden = false;
 });
 $('shop-close-btn').addEventListener('click', () => (shopModal.hidden = true));
+
+// ---------- 武将図鑑(獲得したカードの一覧・並べ替え・絞り込み) ----------
+const ALL_NATIONS_FOR_FILTER = [PLAYER_NATION, ...STORY_NATIONS];
+for (const n of ALL_NATIONS_FOR_FILTER) {
+  const opt = document.createElement('option');
+  opt.value = n.id;
+  opt.textContent = n.name;
+  collectionFilterNation.appendChild(opt);
+}
+
+openCollectionBtn.addEventListener('click', () => {
+  renderCollection();
+  collectionModal.hidden = false;
+});
+collectionCloseBtn.addEventListener('click', () => (collectionModal.hidden = true));
+for (const el of [collectionSort, collectionFilterStatus, collectionFilterRarity, collectionFilterType, collectionFilterNation]) {
+  el.addEventListener('change', renderCollection);
+}
+
+function renderCollection() {
+  const sortKey = collectionSort.value;
+  const filterStatus = collectionFilterStatus.value;
+  const filterRarity = collectionFilterRarity.value;
+  const filterType = collectionFilterType.value;
+  const filterNation = collectionFilterNation.value;
+
+  let list = CHARACTER_CARDS.filter((char) => {
+    const unlocked = profile.unlockedCharacters.includes(char.id);
+    if (filterStatus === 'owned' && !unlocked) return false;
+    if (filterStatus === 'locked' && unlocked) return false;
+    if (filterRarity && char.rarity !== Number(filterRarity)) return false;
+    if (filterType && char.type !== filterType) return false;
+    if (filterNation && char.nationId !== filterNation) return false;
+    return true;
+  });
+
+  list = list.slice().sort((a, b) => {
+    if (sortKey === 'count') return (profile.characterCardCounts[b.id] || 0) - (profile.characterCardCounts[a.id] || 0);
+    if (sortKey === 'name') return a.name.localeCompare(b.name, 'ja');
+    if (sortKey === 'type') return a.type.localeCompare(b.type) || b.rarity - a.rarity;
+    return b.rarity - a.rarity || (profile.characterCardCounts[b.id] || 0) - (profile.characterCardCounts[a.id] || 0);
+  });
+
+  collectionCountSummary.textContent = `${list.length}件 / 全${CHARACTER_CARDS.length}件`;
+  collectionList.innerHTML = '';
+  for (const char of list) {
+    collectionList.appendChild(buildCharacterProgressRow(char));
+  }
+}
 
 // ---------- 武将カードガチャの演出(カプセルをタップして開封し、レアリティに応じた光の演出で結果を見せる) ----------
 const RARITY_COLOR = { 5: '#ffb300', 4: '#c77dff', 3: '#4ea8de', 2: '#7fd18a', 1: '#bbbbbb' };
@@ -2237,6 +2294,7 @@ installBtn.addEventListener('click', async () => {
 // それを消費して該当レイヤーを閉じるだけにする(閉じるボタン側の処理は変更不要)
 const backGuardedOverlays = [
   gachaPullModal,
+  collectionModal,
   loginBonusModal,
   tutorialModal,
   cpuModePanel,
@@ -2276,6 +2334,7 @@ function closeTopmostOverlay() {
   }
   const overlays = [
     gachaPullModal,
+    collectionModal,
     loginBonusModal,
     shopModal,
     rulesModal,

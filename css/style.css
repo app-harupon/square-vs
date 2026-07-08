@@ -144,6 +144,35 @@ body {
 .character-owned-list img { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; }
 .character-owned-list .char-progress-name { flex: 1; font-weight: 700; }
 .character-owned-list .char-progress-count { color: var(--ink-soft); }
+.character-owned-list .char-progress-row.locked-row { opacity: 0.55; }
+
+/* ---------- 武将図鑑(並べ替え・絞り込み) ---------- */
+.collection-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.collection-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  flex: 1;
+  min-width: 100px;
+}
+.collection-field select {
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 6px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #ddd;
+  background: #fff;
+  color: var(--ink);
+}
+#collection-count-summary { margin: 0 0 6px; }
+#collection-list { max-height: 50vh; overflow-y: auto; }
 
 /* ---------- ガチャ演出 ---------- */
 .gacha-pull-overlay { background: rgba(15, 10, 30, 0.82); backdrop-filter: blur(6px); z-index: 160; }

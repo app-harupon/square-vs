@@ -254,10 +254,61 @@
           <button id="character-gacha10-btn" class="btn btn-primary gacha-btn-ten">10連引く<br /><span class="cost">💎<span id="character-gacha10-cost"></span></span></button>
         </div>
         <p id="character-gacha-first-hint" class="hint gacha-first-hint" hidden>✨初回10連は特別価格!</p>
-        <div id="character-owned-list" class="character-owned-list"></div>
+        <p id="collection-summary" class="hint"></p>
+        <button id="open-collection-btn" class="btn btn-secondary">🗂 図鑑を見る</button>
       </div>
 
       <button id="shop-close-btn" class="btn btn-ghost">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ===== 武将図鑑(獲得したカードの一覧・並べ替え・絞り込み) ===== -->
+  <div id="collection-modal" class="modal-overlay" hidden>
+    <div class="modal-card modal-scroll">
+      <h2>🗂 武将図鑑</h2>
+      <div class="collection-controls">
+        <label class="collection-field">並べ替え
+          <select id="collection-sort">
+            <option value="rarity">レアリティ順</option>
+            <option value="count">所持枚数順</option>
+            <option value="name">名前順</option>
+            <option value="type">兵種順</option>
+          </select>
+        </label>
+        <label class="collection-field">状態
+          <select id="collection-filter-status">
+            <option value="">すべて</option>
+            <option value="owned">仲間のみ</option>
+            <option value="locked">未仲間のみ</option>
+          </select>
+        </label>
+        <label class="collection-field">レアリティ
+          <select id="collection-filter-rarity">
+            <option value="">すべて</option>
+            <option value="5">☆5</option>
+            <option value="4">☆4</option>
+            <option value="3">☆3</option>
+            <option value="2">☆2</option>
+            <option value="1">☆1</option>
+          </select>
+        </label>
+        <label class="collection-field">兵種
+          <select id="collection-filter-type">
+            <option value="">すべて</option>
+            <option value="infantry">歩兵</option>
+            <option value="archer">弓兵</option>
+            <option value="cavalry">騎兵</option>
+          </select>
+        </label>
+        <label class="collection-field">国
+          <select id="collection-filter-nation">
+            <option value="">すべて</option>
+          </select>
+        </label>
+      </div>
+      <p id="collection-count-summary" class="hint"></p>
+      <div id="collection-list" class="character-owned-list"></div>
+      <button id="collection-close-btn" class="btn btn-ghost">閉じる</button>
     </div>
   </div>
 
