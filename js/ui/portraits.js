@@ -292,10 +292,36 @@ function drawPortrait(ctx, def) {
   ctx.stroke();
 }
 
+// 武将ガチャの拡張ロースター(副将・一般武将)用: 手描き定義が無いIDでも、
+// 所属国(IDの先頭部分)の配色を引き継ぎつつ、髪型・アクセサリ・表情だけをID固定のハッシュで
+// 変化させた肖像画を自動生成する(46人分すべてに手描き定義を用意しなくても破綻しないようにする)
+const HAIR_STYLES = ['short', 'messy', 'mohawk', 'long', 'bald', 'hood', 'ponytail', 'veil', 'spiky', 'wave'];
+const ACCESSORIES = ['cape', 'eyepatch', 'tusks', 'bow', 'helmet', 'wolfear', 'scale', 'seal', 'flame', 'mask', 'plume', 'shield'];
+const EYE_STYLES = ['determined', 'sly', 'fierce', 'calm', 'stern', 'narrow', 'sharp', 'closed'];
+
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function deriveVariantDef(id) {
+  const baseId = id.split('_')[0];
+  const base = PORTRAIT_DEFS[baseId];
+  if (!base) return null;
+  const h = hashStr(id);
+  return {
+    ...base,
+    hairStyle: HAIR_STYLES[h % HAIR_STYLES.length],
+    accessory: ACCESSORIES[Math.floor(h / HAIR_STYLES.length) % ACCESSORIES.length],
+    eyes: EYE_STYLES[Math.floor(h / (HAIR_STYLES.length * ACCESSORIES.length)) % EYE_STYLES.length],
+  };
+}
+
 // 国IDから肖像画canvasを取得する(キャッシュ済みなら使い回す)
 export function getPortraitCanvas(nationId) {
   if (portraitCache.has(nationId)) return portraitCache.get(nationId);
-  const def = PORTRAIT_DEFS[nationId];
+  const def = PORTRAIT_DEFS[nationId] || deriveVariantDef(nationId);
   const canvas = document.createElement('canvas');
   canvas.width = PORTRAIT_SIZE;
   canvas.height = PORTRAIT_SIZE;

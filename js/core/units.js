@@ -57,9 +57,6 @@ export const VICE_GENERAL_COMBAT_BONUS = 2;
 export const ELITE_CHANCE = 0.1;
 export const ELITE_RANK_BONUS = 1;
 
-// 武将ガチャで同じカードを20枚集めた武将の能力アップ(基本ランク+1)
-export const CHARACTER_ENHANCE_RANK_BONUS = 1;
-
 // --- 特殊カード ---
 // effect: 'shield' | 'rapid' | 'charge' | 'inspire'
 export const CARD_DEFS = {

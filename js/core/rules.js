@@ -8,7 +8,6 @@ import {
   MAX_SQUAD_SIZE,
   GENERAL_UPGRADE_BONUS,
   ELITE_CHANCE,
-  CHARACTER_ENHANCE_RANK_BONUS,
 } from './units.js';
 import { createSquad, canSplit, canMerge } from './squad.js';
 import {
@@ -20,16 +19,18 @@ import {
   inBounds,
 } from './board.js';
 import { calcCombat } from './combat.js';
-import { findCharacterCard, CHARACTER_GACHA_ENHANCE_COUNT } from './story.js';
+import { findCharacterCard, RARITY_RANK_BONUS, characterCollectionBonus } from './characters.js';
 
 export function other(playerId) {
   return playerId === 'A' ? 'B' : 'A';
 }
 
-// キャラクターカードが武将ガチャで20枚集まっている(強化済み)場合、ランクボーナスを追加で乗せる
+// 武将カードのレアリティ(☆の数)と、ガチャで集めた枚数(10枚ごとに+1、上限なし)を
+// 合わせてランクボーナスとして乗せる
 function applyCharacterEnhance(squad, characterId, profile) {
+  const rarity = findCharacterCard(characterId)?.rarity || 1;
   const count = profile?.characterCardCounts?.[characterId] || 0;
-  if (count >= CHARACTER_GACHA_ENHANCE_COUNT) squad.stats.rank += CHARACTER_ENHANCE_RANK_BONUS;
+  squad.stats.rank += (RARITY_RANK_BONUS[rarity] || 0) + characterCollectionBonus(count);
 }
 
 export function generateSquadTemplates(mode, ownerId, profile = null, generalCharacterId = null, viceGeneralCharacterIds = []) {

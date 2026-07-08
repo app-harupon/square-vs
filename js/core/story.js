@@ -213,29 +213,5 @@ export function findNation(nationId) {
   return STORY_NATIONS.find((n) => n.id === nationId) || null;
 }
 
-function dominantTypeOf(ratios) {
-  return Object.values(UNIT_TYPES).reduce((best, type) =>
-    (ratios[type] || 0) > (ratios[best] || 0) ? type : best
-  , UNIT_TYPES.INFANTRY);
-}
-
-// ガチャで手に入る「武将カード」の統合一覧(プレイヤー側キャラ4人 + 敵9ヶ国の君主)。
-// 同じカードを10枚集めるとその武将が仲間になり(CPU対戦で使用可能)、20枚集めると能力が上がる。
-export const CHARACTER_CARDS = [
-  ...PLAYER_CHARACTERS.map((c) => ({
-    id: c.id, name: c.name, title: c.title, type: c.type, color: PLAYER_NATION.color,
-    skillName: c.skillName, skillDesc: c.skillDesc, skillEffect: c.skillEffect, source: 'player',
-  })),
-  ...STORY_NATIONS.map((n) => ({
-    id: n.id, name: n.monarch, title: `${n.name}の君主`, type: dominantTypeOf(n.composition), color: n.color,
-    skillName: n.skillName, skillDesc: n.skillDesc, skillEffect: n.skillEffect, source: 'nation',
-  })),
-];
-
-export function findCharacterCard(id) {
-  return CHARACTER_CARDS.find((c) => c.id === id) || null;
-}
-
-// ガチャで同じ武将カードが何枚集まると仲間になる/能力が上がるか
-export const CHARACTER_GACHA_UNLOCK_COUNT = 10;
-export const CHARACTER_GACHA_ENHANCE_COUNT = 20;
+// 武将ガチャ用の拡張キャラクターロースター(☆1〜☆5、46人)は core/characters.js を参照。
+// (story.jsはストーリーモード自体のデータに専念させ、ガチャの拡張ロースターは分離している)

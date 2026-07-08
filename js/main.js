@@ -2,7 +2,7 @@ import { MODES, getMode } from './core/modes.js';
 import { canSplit, canMerge } from './core/squad.js';
 import { isAdjacent } from './core/board.js';
 import { TERRAIN } from './core/terrain.js';
-import { MIN_ACTIVE_SOLDIERS, MAX_SQUAD_SIZE, UNIT_TYPES, PREMIUM_CARD_DEFS, GENERAL_UPGRADE_TYPES, UNIT_STATS, CHARACTER_ENHANCE_RANK_BONUS } from './core/units.js';
+import { MIN_ACTIVE_SOLDIERS, MAX_SQUAD_SIZE, UNIT_TYPES, PREMIUM_CARD_DEFS, GENERAL_UPGRADE_TYPES, UNIT_STATS } from './core/units.js';
 import { loadProfile, saveProfile, checkLoginBonus, spendGems } from './core/profile.js';
 import {
   createGame,
@@ -27,7 +27,8 @@ import {
   other,
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
-import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter, effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold, CHARACTER_CARDS, findCharacterCard, CHARACTER_GACHA_UNLOCK_COUNT, CHARACTER_GACHA_ENHANCE_COUNT } from './core/story.js';
+import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter, effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold } from './core/story.js';
+import { CHARACTER_CARDS, findCharacterCard, CHARACTER_GACHA_UNLOCK_COUNT, CHARACTER_GACHA_STEP, characterCollectionBonus, RARITY_LABEL, RARITY_RANK_BONUS } from './core/characters.js';
 import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops } from './core/storyBattle.js';
 import {
   generateWorldMap,
@@ -506,10 +507,11 @@ function renderCharacterSelect() {
     const isVice = charSelectVice.has(char.id);
     const card = document.createElement('div');
     card.className = 'character-card' + (isGeneral || isVice ? ' selected' : '');
+    const rarityPrefix = char.rarity ? `${RARITY_LABEL[char.rarity]} ` : '';
     card.innerHTML = `
       <img src="${getPortraitDataUrl(char.id)}" alt="" />
       <div class="character-info">
-        <div class="character-name">${char.name} <span class="hint">(${UNIT_STATS[char.type].label})</span></div>
+        <div class="character-name">${rarityPrefix}${char.name} <span class="hint">(${UNIT_STATS[char.type].label})</span></div>
         <div class="character-title">${char.title}</div>
         <div class="character-skill">✨${char.skillName}: ${char.skillDesc}</div>
       </div>
@@ -2008,17 +2010,20 @@ function refreshShopUI() {
   characterGachaCostEl.textContent = CHARACTER_GACHA_COST;
   characterGachaBtn.disabled = profile.gems < CHARACTER_GACHA_COST;
   characterOwnedList.innerHTML = '';
-  for (const char of CHARACTER_CARDS) {
+  const sorted = [...CHARACTER_CARDS].sort((a, b) =>
+    b.rarity - a.rarity || (profile.characterCardCounts[b.id] || 0) - (profile.characterCardCounts[a.id] || 0)
+  );
+  for (const char of sorted) {
     const count = profile.characterCardCounts[char.id] || 0;
     const unlocked = profile.unlockedCharacters.includes(char.id);
-    const enhanced = count >= CHARACTER_GACHA_ENHANCE_COUNT;
+    const bonus = characterCollectionBonus(count);
     const row = document.createElement('div');
-    row.className = 'char-progress-row' + (enhanced ? ' enhanced' : unlocked ? ' unlocked' : '');
-    const statusIcon = enhanced ? '⭐仲間(強化)' : unlocked ? '🤝仲間' : '';
+    row.className = 'char-progress-row' + (bonus > 0 ? ' enhanced' : unlocked ? ' unlocked' : '');
+    const statusText = unlocked ? `🤝仲間${bonus > 0 ? `(+${bonus})` : ''}` : `未仲間(あと${CHARACTER_GACHA_UNLOCK_COUNT - count}枚)`;
     row.innerHTML = `
       <img src="${getPortraitDataUrl(char.id)}" alt="" />
-      <span class="char-progress-name">${char.name}<span class="hint">(${char.title})</span></span>
-      <span class="char-progress-count">${statusIcon} ${count}/${CHARACTER_GACHA_ENHANCE_COUNT}枚</span>
+      <span class="char-progress-name">${RARITY_LABEL[char.rarity]} ${char.name}<span class="hint">(${char.title})</span></span>
+      <span class="char-progress-count">${statusText} ${count}枚</span>
     `;
     characterOwnedList.appendChild(row);
   }
@@ -2060,32 +2065,36 @@ characterGachaBtn.addEventListener('click', () => {
   if (!spendGems(profile, CHARACTER_GACHA_COST)) return;
   const won = CHARACTER_CARDS[Math.floor(Math.random() * CHARACTER_CARDS.length)];
   const wasUnlocked = profile.unlockedCharacters.includes(won.id);
-  const wasEnhanced = (profile.characterCardCounts[won.id] || 0) >= CHARACTER_GACHA_ENHANCE_COUNT;
+  const bonusBefore = characterCollectionBonus(profile.characterCardCounts[won.id] || 0);
   profile.characterCardCounts[won.id] = (profile.characterCardCounts[won.id] || 0) + 1;
   const count = profile.characterCardCounts[won.id];
+  const bonusAfter = characterCollectionBonus(count);
   const justUnlocked = !wasUnlocked && count >= CHARACTER_GACHA_UNLOCK_COUNT;
-  const justEnhanced = !wasEnhanced && count >= CHARACTER_GACHA_ENHANCE_COUNT;
+  const justBoosted = bonusAfter > bonusBefore;
   if (justUnlocked) profile.unlockedCharacters.push(won.id);
   saveProfile(profile);
   refreshShopUI();
-  showCharacterGachaResult(won, count, justUnlocked, justEnhanced);
+  showCharacterGachaResult(won, count, justUnlocked, justBoosted, bonusAfter);
 });
 
-function showCharacterGachaResult(char, count, justUnlocked, justEnhanced) {
-  const progress = Math.min(count, CHARACTER_GACHA_ENHANCE_COUNT);
-  const milestoneText = justEnhanced
-    ? `<p class="hint">⭐${char.name}の能力がアップしました!(ランク+${CHARACTER_ENHANCE_RANK_BONUS})</p>`
+function showCharacterGachaResult(char, count, justUnlocked, justBoosted, bonus) {
+  const remainToUnlock = CHARACTER_GACHA_UNLOCK_COUNT - count;
+  const remainToNextBoost = CHARACTER_GACHA_STEP - (count % CHARACTER_GACHA_STEP || CHARACTER_GACHA_STEP);
+  const milestoneText = justBoosted
+    ? `<p class="hint">⭐${char.name}の能力がアップしました!(追加ランク+${bonus})</p>`
     : justUnlocked
       ? `<p class="hint">🤝${char.name}が仲間になりました!CPU対戦の「カードあり」で使えます。</p>`
-      : `<p class="hint">${char.name}のカード: ${count}/${CHARACTER_GACHA_ENHANCE_COUNT}枚(${count >= CHARACTER_GACHA_UNLOCK_COUNT ? '能力アップまであと' + (CHARACTER_GACHA_ENHANCE_COUNT - count) + '枚' : '仲間になるまであと' + (CHARACTER_GACHA_UNLOCK_COUNT - count) + '枚'})</p>`;
+      : count < CHARACTER_GACHA_UNLOCK_COUNT
+        ? `<p class="hint">${char.name}のカード: ${count}枚(仲間になるまであと${remainToUnlock}枚)</p>`
+        : `<p class="hint">${char.name}のカード: ${count}枚(次の能力アップまであと${remainToNextBoost}枚)</p>`;
   gachaResultBody.innerHTML = `
     <img src="${getPortraitDataUrl(char.id)}" alt="" style="width:72px;height:72px;border-radius:50%;display:block;margin:0 auto 10px;" />
-    <p><b>${char.name}(${char.title})</b></p>
+    <p><b>${RARITY_LABEL[char.rarity]}<br>${char.name}(${char.title})</b></p>
     <p class="hint">✨${char.skillName}: ${char.skillDesc}</p>
     ${milestoneText}
   `;
   gachaResultModal.hidden = false;
-  playSfx(justUnlocked || justEnhanced ? 'capital' : 'cardUse');
+  playSfx(justUnlocked || justBoosted ? 'capital' : 'cardUse');
 }
 
 function showLoginBonusIfAny() {
