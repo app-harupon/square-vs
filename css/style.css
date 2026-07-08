@@ -118,6 +118,10 @@ body {
 .gacha-btn-row .btn .cost { display: block; font-size: 0.72rem; color: #fff; opacity: 0.9; font-weight: 700; }
 .gacha-btn-ten { background: linear-gradient(135deg, #ff9ec6, #ff6fa8); box-shadow: 0 6px 14px rgba(255,111,168,0.35); }
 .gacha-first-hint { text-align: center; color: #d6336c; font-weight: 700; margin: 4px 0 0; }
+.pickup-banner-title { font-weight: 800; color: #d6336c; margin: 4px 0; }
+.pickup-banner-portraits { display: flex; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.pickup-portrait { display: flex; flex-direction: column; align-items: center; font-size: 0.65rem; gap: 2px; }
+.pickup-portrait img { width: 44px; height: 44px; border-radius: 50%; border: 2px solid #ffb300; object-fit: cover; }
 .owned-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .owned-chip {
   font-size: 0.72rem;
@@ -173,6 +177,28 @@ body {
 }
 #collection-count-summary { margin: 0 0 6px; }
 #collection-list { max-height: 50vh; overflow-y: auto; }
+.char-progress-rate { display: block; font-size: 0.65rem; color: #b8860b; }
+
+.collection-featured { margin: 10px 0; }
+.collection-featured h3 { margin: 0 0 6px; font-size: 0.9rem; }
+.collection-featured-list { display: flex; flex-direction: column; gap: 6px; max-height: 26vh; overflow-y: auto; }
+.character-owned-list .char-progress-row.featured-card {
+  border: 2px solid #ffb300;
+  box-shadow: 0 0 10px rgba(255, 179, 0, 0.55);
+  position: relative;
+}
+.character-owned-list .char-progress-row.featured-card::before {
+  content: '注目';
+  position: absolute;
+  top: -8px;
+  right: 6px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #fff;
+  background: #ff6fa8;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
 
 /* ---------- ガチャ演出 ---------- */
 .gacha-pull-overlay { background: rgba(15, 10, 30, 0.82); backdrop-filter: blur(6px); z-index: 160; }

@@ -24,6 +24,11 @@ const DEFAULT_PROFILE = {
   cpuLastGeneral: null, // 通常CPU対戦で直近に選んだ大将キャラクターID
   cpuLastViceGenerals: [], // 通常CPU対戦で直近に選んだ副将キャラクターIDの配列
   characterGacha10Used: false, // 武将カードガチャの10連を1度でも引いたか(初回だけ特別価格になる)
+  storyLostCharacterIds: [], // 拠点防衛戦に敗れ、このキャンペーン中は大将・副将として選べなくなった黎明キャラクターID一覧
+                              // (ガチャの武将コレクション unlockedCharacters とは完全に別管理。「別個体」として扱う)
+  storyPendingDefense: null, // 保留中の拠点防衛戦 { tileIndex, attackerNationId } | null。
+                              // ストーリー戦闘直後に王都・拠点への侵攻が起きた場合にセットし、迎撃バトルが決着するまで保持する
+                              // (アプリを再起動しても消えないよう、プロフィールに保存しておく)
 };
 
 export function loadProfile() {

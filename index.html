@@ -258,6 +258,17 @@
         <button id="open-collection-btn" class="btn btn-secondary">🗂 図鑑を見る</button>
       </div>
 
+      <div class="shop-section" id="pickup-gacha-section" hidden>
+        <h3>🎯 ピックアップガチャ</h3>
+        <p id="pickup-banner-title" class="pickup-banner-title"></p>
+        <div id="pickup-banner-portraits" class="pickup-banner-portraits"></div>
+        <div class="gacha-btn-row">
+          <button id="pickup-gacha-btn" class="btn btn-primary">1回引く<br /><span class="cost">💎<span id="pickup-gacha-cost"></span></span></button>
+          <button id="pickup-gacha10-btn" class="btn btn-primary gacha-btn-ten">10連引く<br /><span class="cost">💎<span id="pickup-gacha10-cost"></span></span></button>
+        </div>
+        <p id="pickup-gacha-first-hint" class="hint gacha-first-hint" hidden>✨初回10連は特別価格!</p>
+      </div>
+
       <button id="shop-close-btn" class="btn btn-ghost">閉じる</button>
     </div>
   </div>
@@ -266,6 +277,10 @@
   <div id="collection-modal" class="modal-overlay" hidden>
     <div class="modal-card modal-scroll">
       <h2>🗂 武将図鑑</h2>
+      <div class="collection-featured">
+        <h3>✨ 注目の武将</h3>
+        <div id="collection-featured-list" class="collection-featured-list"></div>
+      </div>
       <div class="collection-controls">
         <label class="collection-field">並べ替え
           <select id="collection-sort">
@@ -273,6 +288,8 @@
             <option value="count">所持枚数順</option>
             <option value="name">名前順</option>
             <option value="type">兵種順</option>
+            <option value="rate">確率順</option>
+            <option value="power">能力値順</option>
           </select>
         </label>
         <label class="collection-field">状態
@@ -445,6 +462,15 @@
         <button id="story-tile-ally-btn" class="btn btn-action">🤝 同盟を結ぶ</button>
         <button id="story-tile-cancel-btn" class="btn btn-ghost">閉じる</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== 拠点防衛戦への遷移プロンプト ===== -->
+  <div id="capital-defense-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2 id="capital-defense-title">⚔️ 拠点が攻撃されています!</h2>
+      <p id="capital-defense-desc" class="hint"></p>
+      <button id="capital-defense-confirm-btn" class="btn btn-primary">迎撃する武将を選ぶ</button>
     </div>
   </div>
 

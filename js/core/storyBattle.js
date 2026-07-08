@@ -4,7 +4,7 @@ import { generateTerrain } from './terrain.js';
 import { UNIT_TYPES, initialHand, makeSkillCard, ELITE_CHANCE, INITIAL_SOLDIERS } from './units.js';
 import { generateNationSquadTemplates } from './rules.js';
 import { createSquad } from './squad.js';
-import { PLAYER_NATION, findPlayerCharacter } from './story.js';
+import { PLAYER_NATION, findPlayerCharacter, DEFENSE_BATTLE_RANK_BONUS } from './story.js';
 
 // 両軍合わせた兵力規模に応じて盤面サイズを決める(小規模な合戦を無駄に広い盤で戦わせないため)
 function boardSizeFor(combinedTroops) {
@@ -69,7 +69,7 @@ function grantCharacterSkills(hand, generalCharacterId, viceGeneralCharacterIds)
 // tileTroopCount: このマス(領土1つ分、およそ2000人の駐留軍)を守る敵兵力。
 // 国の総兵力をそのまま使うのではなく、マス単位の駐留軍规模で1回の合戦を構成する。
 // generalCharacterId/viceGeneralCharacterIds: プレイヤーが選んだ大将・副将キャラクター(未指定ならノア単独)
-export function createStoryGame(nation, tileTroopCount, profile = null, landmark = null, generalCharacterId = 'noa', viceGeneralCharacterIds = []) {
+export function createStoryGame(nation, tileTroopCount, profile = null, landmark = null, generalCharacterId = 'noa', viceGeneralCharacterIds = [], options = {}) {
   const combinedTroops = getPlayerTotalTroops(profile) + tileTroopCount;
   const { boardSize, deployDepth } = boardSizeFor(combinedTroops);
   const grid = generateTerrain(boardSize, deployDepth);
@@ -78,8 +78,16 @@ export function createStoryGame(nation, tileTroopCount, profile = null, landmark
   grantCharacterSkills(playerHand, generalCharacterId, viceGeneralCharacterIds);
   const enemyHand = initialHand();
   if (nation.skillName) enemyHand.push(makeSkillCard(nation.skillName, nation.skillDesc, nation.skillEffect, 'general'));
+  const isDefenseBattle = !!options.isDefenseBattle;
+  const playerSquads = generatePlayerSquadTemplates('A', profile, generalCharacterId, viceGeneralCharacterIds);
+  if (isDefenseBattle) {
+    // 拠点防衛戦: 出陣した大将・副将に守備側ボーナスを加算する(盤面・配置ゾーンの反転はしない)
+    for (const squad of playerSquads) {
+      if (squad.isGeneral || squad.isViceGeneral) squad.stats.rank += DEFENSE_BATTLE_RANK_BONUS;
+    }
+  }
   const state = {
-    mode: { id: 'story', name: 'ストーリーモード', boardSize, deployDepth },
+    mode: { id: isDefenseBattle ? 'story_defense' : 'story', name: 'ストーリーモード', boardSize, deployDepth },
     size: boardSize,
     grid,
     squads: [],
@@ -88,7 +96,7 @@ export function createStoryGame(nation, tileTroopCount, profile = null, landmark
       B: { id: 'B', name: nation.monarch, hand: enemyHand },
     },
     deployQueue: {
-      A: generatePlayerSquadTemplates('A', profile, generalCharacterId, viceGeneralCharacterIds),
+      A: playerSquads,
       B: generateNationSquadTemplates('B', tileTroopCount, nation.composition, dominantType(nation.composition), profile, viceGeneralCountFor(tileTroopCount)),
     },
     phase: 'deploy',
@@ -98,6 +106,7 @@ export function createStoryGame(nation, tileTroopCount, profile = null, landmark
     log: [],
     lastCombat: null,
     isStory: true,
+    isDefenseBattle,
     storyNation: nation,
     landmark, // 'castle'(王城) | 'fortress'(砦) | null。B軍(敵)の陣地に城の装飾を立てる目印
   };

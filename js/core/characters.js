@@ -17,6 +17,9 @@ function findNationLoose(id) {
 // レアリティごとの、大将・副将として使った時の追加ランクボーナス(スキルの強さの差もここで表現する)
 export const RARITY_RANK_BONUS = { 5: 3, 4: 2, 3: 1, 2: 0, 1: 0 };
 
+// 武将ガチャの排出率(レアリティ合計、足すと1.0になる)。現時点では暫定値であり、後日調整する前提のプレースホルダー
+export const RARITY_DROP_RATE = { 5: 0.03, 4: 0.07, 3: 0.20, 2: 0.30, 1: 0.40 };
+
 // ---------- ☆5: 主要4キャラ(ノア・ジェネス・ギンジ・シノノメ)。他より強めのスキルを持つ ----------
 const FIVE_STAR_NATION_IDS = ['haitetsu', 'soukai', 'fuin'];
 function charFromPlayer(charId, rarity, titleOverride) {
@@ -130,4 +133,63 @@ export const CHARACTER_GACHA_STEP = 10;
 // 集めた枚数に応じた追加ランクボーナス(10枚ごとに+1、上限なし)
 export function characterCollectionBonus(count) {
   return Math.floor((count || 0) / CHARACTER_GACHA_STEP);
+}
+
+// 同じレアリティ内の頭数で等分した、そのキャラクター1枚あたりの排出率(図鑑の表示用)
+export function characterDropRate(char) {
+  const sameRarityCount = CHARACTER_CARDS.filter((c) => c.rarity === char.rarity).length;
+  return RARITY_DROP_RATE[char.rarity] / (sameRarityCount || 1);
+}
+
+// レアリティ排出率に基づいた重み付き抽選。poolを絞ればピックアップガチャにも流用できる。
+// 重みはキャラ1枚あたりの排出率(characterDropRate)を使う。レアリティ枠の合計値をそのまま
+// カード単位の重みにすると頭数の多いレアリティが過剰に優遇されてしまうため注意。
+export function pickWeightedCharacterCard(pool = CHARACTER_CARDS) {
+  const weights = pool.map((c) => characterDropRate(c));
+  const total = weights.reduce((sum, w) => sum + w, 0) || 1;
+  let roll = Math.random() * total;
+  for (let i = 0; i < pool.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return pool[i];
+  }
+  return pool[pool.length - 1];
+}
+
+// ピックアップガチャのバナー一覧。ストーリー新章との連動スケジューリングは今回のスコープ外なので、
+// デモとして常時有効(start/endなし)のバナーを1つだけ用意する
+export const PICKUP_BANNERS = [
+  {
+    id: 'demo_pickup_1',
+    title: '☆5武将ピックアップ!',
+    featuredCharacterIds: ['noa', 'haitetsu'],
+    rateMultiplier: 4,
+    startDate: null,
+    endDate: null,
+  },
+];
+
+// 現在有効なピックアップバナーを1つ返す(なければnull)。start/endがnullなら常時有効として扱う
+export function getActivePickupBanner(date = new Date()) {
+  const d = date.toISOString().slice(0, 10);
+  return PICKUP_BANNERS.find((b) => {
+    if (b.startDate && d < b.startDate) return false;
+    if (b.endDate && d > b.endDate) return false;
+    return true;
+  }) || null;
+}
+
+// ピックアップバナー用の重み付き抽選: featuredCharacterIdsの排出率をrateMultiplier倍にしてから
+// プール全体で正規化し、1枚選ぶ
+export function pickWeightedCharacterCardForBanner(banner, pool = CHARACTER_CARDS) {
+  const weights = pool.map((c) => {
+    const base = characterDropRate(c);
+    return banner.featuredCharacterIds.includes(c.id) ? base * banner.rateMultiplier : base;
+  });
+  const total = weights.reduce((sum, w) => sum + w, 0) || 1;
+  let roll = Math.random() * total;
+  for (let i = 0; i < pool.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return pool[i];
+  }
+  return pool[pool.length - 1];
 }

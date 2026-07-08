@@ -28,7 +28,11 @@ import {
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
 import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter, effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold } from './core/story.js';
-import { CHARACTER_CARDS, findCharacterCard, CHARACTER_GACHA_UNLOCK_COUNT, CHARACTER_GACHA_STEP, characterCollectionBonus, RARITY_LABEL, RARITY_RANK_BONUS } from './core/characters.js';
+import {
+  CHARACTER_CARDS, findCharacterCard, CHARACTER_GACHA_UNLOCK_COUNT, CHARACTER_GACHA_STEP, characterCollectionBonus,
+  RARITY_LABEL, RARITY_RANK_BONUS, characterDropRate, pickWeightedCharacterCard,
+  getActivePickupBanner, pickWeightedCharacterCardForBanner,
+} from './core/characters.js';
 import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops } from './core/storyBattle.js';
 import {
   generateWorldMap,
@@ -116,6 +120,14 @@ const characterGacha10Btn = $('character-gacha10-btn');
 const characterGachaFirstHint = $('character-gacha-first-hint');
 const characterGachaCostEl = $('character-gacha-cost');
 const characterGacha10CostEl = $('character-gacha10-cost');
+const pickupGachaSection = $('pickup-gacha-section');
+const pickupBannerTitle = $('pickup-banner-title');
+const pickupBannerPortraits = $('pickup-banner-portraits');
+const pickupGachaBtn = $('pickup-gacha-btn');
+const pickupGacha10Btn = $('pickup-gacha10-btn');
+const pickupGachaCostEl = $('pickup-gacha-cost');
+const pickupGacha10CostEl = $('pickup-gacha10-cost');
+const pickupGachaFirstHint = $('pickup-gacha-first-hint');
 const collectionSummaryEl = $('collection-summary');
 const openCollectionBtn = $('open-collection-btn');
 const collectionModal = $('collection-modal');
@@ -127,6 +139,7 @@ const collectionFilterType = $('collection-filter-type');
 const collectionFilterNation = $('collection-filter-nation');
 const collectionCountSummary = $('collection-count-summary');
 const collectionList = $('collection-list');
+const collectionFeaturedList = $('collection-featured-list');
 const gachaPullModal = $('gacha-pull-modal');
 const gachaPullProgress = $('gacha-pull-progress');
 const gachaCapsule = $('gacha-capsule');
@@ -181,6 +194,10 @@ const characterSelectCancelBtn = $('character-select-cancel-btn');
 const storyTileAttackBtn = $('story-tile-attack-btn');
 const storyTileAllyBtn = $('story-tile-ally-btn');
 const storyTileCancelBtn = $('story-tile-cancel-btn');
+const capitalDefenseModal = $('capital-defense-modal');
+const capitalDefenseTitle = $('capital-defense-title');
+const capitalDefenseDesc = $('capital-defense-desc');
+const capitalDefenseConfirmBtn = $('capital-defense-confirm-btn');
 
 const CHARACTER_GACHA_COST = 300;
 const CHARACTER_GACHA_TEN_COST = 2500;
@@ -485,6 +502,8 @@ function startStoryBattle(tileIndex) {
   const difficulty = findDifficulty(profile.storyDifficulty);
   const tileTroopCount = Math.max(500, Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier));
   const landmark = isCapitalTile(map, tileIndex) ? 'castle' : isFortressTile(map, tileIndex) ? 'fortress' : null;
+  const lostIds = profile.storyLostCharacterIds || [];
+  const roster = PLAYER_CHARACTERS.filter((c) => !lostIds.includes(c.id));
   openCharacterSelect((generalId, viceIds) => {
     isOnlineGame = false;
     isHost = false;
@@ -492,8 +511,70 @@ function startStoryBattle(tileIndex) {
     game = createStoryGame(nation, tileTroopCount, profile, landmark, generalId, viceIds);
     game.storyTileIndex = tileIndex;
     enterGameScreen();
-  });
+  }, { roster: roster.length ? roster : PLAYER_CHARACTERS });
 }
+
+// ---------- 拠点防衛戦(王都・敵国から奪った首都タイルへの侵犯を、自動没収ではなく実戦闘で決着させる) ----------
+function startCapitalDefenseBattle(tileIndex, attackerNationId) {
+  const map = profile.storyMap;
+  const nation = findNation(attackerNationId);
+  if (!nation) return;
+  const total = totalTileCount(map, nation.id) || 1;
+  const difficulty = findDifficulty(profile.storyDifficulty);
+  const tileTroopCount = Math.max(500, Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier));
+  const isNativeCapital = map.tiles[tileIndex] === PLAYER_NATION.id;
+  const lostIds = profile.storyLostCharacterIds || [];
+  const roster = PLAYER_CHARACTERS.filter((c) => !lostIds.includes(c.id));
+
+  if (roster.length === 0) {
+    // 迎撃できる武将が誰も残っていない: 選択UIを開かず自動的に防衛失敗として処理する
+    const game = { isDefenseBattle: true, defenseTileIndex: tileIndex, defenseAttackerNationId: attackerNationId, defenseIsNativeCapital: isNativeCapital, defenseGeneralId: null, defenseViceIds: [] };
+    profile.storyPendingDefense = null;
+    resultTitle.textContent = isNativeCapital ? '王都陥落……' : '拠点陥落……';
+    resultDesc.textContent = '迎撃できる武将が残っていません……';
+    resultDesc.textContent += resolveCapitalDefenseOutcome(game, false);
+    resultModal.hidden = false;
+    playSfx('defeat');
+    vibrate([200]);
+    return;
+  }
+
+  openCharacterSelect(
+    (generalId, viceIds) => {
+      isOnlineGame = false;
+      isHost = false;
+      myId = 'A';
+      game = createStoryGame(nation, tileTroopCount, profile, 'castle', generalId, viceIds, { isDefenseBattle: true });
+      game.defenseTileIndex = tileIndex;
+      game.defenseAttackerNationId = attackerNationId;
+      game.defenseIsNativeCapital = isNativeCapital;
+      game.defenseGeneralId = generalId;
+      game.defenseViceIds = viceIds;
+      enterGameScreen();
+    },
+    { roster, persistKeys: { general: 'storyLastGeneral', vice: 'storyLastViceGenerals' }, allowCancel: false }
+  );
+}
+
+function showCapitalDefensePrompt() {
+  const pending = profile.storyPendingDefense;
+  if (!pending) return;
+  const nation = findNation(pending.attackerNationId);
+  const isNativeCapital = profile.storyMap?.tiles[pending.tileIndex] === PLAYER_NATION.id;
+  capitalDefenseTitle.textContent = isNativeCapital ? '⚔️ 王都が攻撃されています!' : '⚔️ 拠点が攻撃されています!';
+  capitalDefenseDesc.textContent = `${nation?.name || pending.attackerNationId}が攻め込んできました。迎撃する武将を選びましょう。`;
+  capitalDefenseModal.hidden = false;
+  playSfx('error');
+  vibrate([80, 40, 80]);
+}
+
+capitalDefenseConfirmBtn.addEventListener('click', () => {
+  const pending = profile.storyPendingDefense;
+  profile.storyPendingDefense = null;
+  saveProfile(profile);
+  capitalDefenseModal.hidden = true;
+  if (pending) startCapitalDefenseBattle(pending.tileIndex, pending.attackerNationId);
+});
 
 // ---------- 出陣メンバー(大将・副将)選択(ストーリーモード・通常CPU対戦「カードあり」の両方で共用) ----------
 let charSelectGeneral = null;
@@ -502,6 +583,7 @@ let charSelectOnConfirm = null;
 let charSelectViceLimit = 0;
 let charSelectRoster = PLAYER_CHARACTERS;
 let charSelectPersistKeys = { general: 'storyLastGeneral', vice: 'storyLastViceGenerals' };
+let charSelectAllowCancel = true;
 
 function openCharacterSelect(onConfirm, opts = {}) {
   const roster = opts.roster || PLAYER_CHARACTERS;
@@ -509,6 +591,8 @@ function openCharacterSelect(onConfirm, opts = {}) {
   charSelectOnConfirm = onConfirm;
   charSelectRoster = roster;
   charSelectPersistKeys = persistKeys;
+  charSelectAllowCancel = opts.allowCancel !== false;
+  characterSelectCancelBtn.hidden = !charSelectAllowCancel;
   charSelectViceLimit = opts.viceLimit ?? viceGeneralCountFor(getPlayerTotalTroops(profile));
   const defaultGeneral = profile[persistKeys.general];
   charSelectGeneral = (roster.find((c) => c.id === defaultGeneral) || roster[0])?.id || null;
@@ -592,6 +676,10 @@ function buildStoryDifficultyList() {
 }
 
 storyBtn.addEventListener('click', () => {
+  if (profile.storyPendingDefense) {
+    showCapitalDefensePrompt();
+    return;
+  }
   if (!profile.storyDifficulty) {
     buildStoryDifficultyList();
     storyDifficultyModal.hidden = false;
@@ -1807,7 +1895,7 @@ async function runCpuTurn() {
   if (game.phase === 'over') showResult();
 }
 
-const VICTORY_GEM_REWARD = { easy: 30, official: 50, normal: 60, large: 100, story: 80 };
+const VICTORY_GEM_REWARD = { easy: 30, official: 50, normal: 60, large: 100, story: 80, story_defense: 40 };
 
 function showResult() {
   if (game.winner === 'draw') {
@@ -1825,7 +1913,9 @@ function showResult() {
       resultDesc.textContent += ` 💎${reward}を獲得しました!`;
     }
   }
-  if (game.isStory) {
+  if (game.isDefenseBattle) {
+    resultDesc.textContent += resolveCapitalDefenseOutcome(game, game.winner === myId);
+  } else if (game.isStory) {
     resultDesc.textContent += resolveStoryBattleOutcome(game, game.winner === myId, game.winner === myId ? '勝利!' : '敗北……');
   }
   resultModal.hidden = false;
@@ -1890,9 +1980,20 @@ function resolveStoryBattleOutcome(finishedGame, won) {
   }
 
   const incursions = simulateRivalIncursions(map, owners, profile.storyAlliances, findNation, worldBoostFactor(profile));
-  if (incursions.length) {
-    const names = incursions.map((inc) => findNation(inc.byNation)?.name || inc.byNation).join('・');
-    text += ` その隙に${names}が領土を侵犯してきました!`;
+  const capitalIncursion = incursions.find((inc) => isCapitalTile(map, inc.tileIndex)) || null;
+  if (capitalIncursion) {
+    // 首都級のタイルへの侵犯は自動没収にせず、迎撃戦の決着がつくまで奪取を保留する
+    owners[capitalIncursion.tileIndex] = 'player';
+    profile.storyPendingDefense = { tileIndex: capitalIncursion.tileIndex, attackerNationId: capitalIncursion.byNation };
+  }
+  const flippedNames = incursions
+    .filter((inc) => inc !== capitalIncursion)
+    .map((inc) => findNation(inc.byNation)?.name || inc.byNation);
+  if (flippedNames.length) text += ` その隙に${flippedNames.join('・')}が領土を侵犯してきました!`;
+  if (capitalIncursion) {
+    const attackerName = findNation(capitalIncursion.byNation)?.name || capitalIncursion.byNation;
+    const isNativeCapital = map.tiles[capitalIncursion.tileIndex] === PLAYER_NATION.id;
+    text += ` ⚔️${attackerName}が${isNativeCapital ? '黎明の王都' : '拠点'}に攻め込んできています!迎撃が必要です。`;
   }
 
   const difficulty = findDifficulty(profile.storyDifficulty);
@@ -1911,9 +2012,52 @@ function resolveStoryBattleOutcome(finishedGame, won) {
   return text;
 }
 
+// 拠点防衛戦の勝敗を反映する。勝利時は保留していた奪取をキャンセルするだけ、敗北時はタイルを
+// 確定譲渡した上で出陣武将をこのキャンペーン中ロストさせる(自国の王都なら即キャンペーン終了)
+function resolveCapitalDefenseOutcome(finishedGame, won) {
+  const { defenseTileIndex: tileIndex, defenseAttackerNationId: attackerNationId, defenseIsNativeCapital: isNativeCapital } = finishedGame;
+  const attackerName = findNation(attackerNationId)?.name || attackerNationId;
+
+  if (won) {
+    saveProfile(profile);
+    return ` ${attackerName}の猛攻を凌ぎきり、拠点の防衛に成功しました!`;
+  }
+
+  if (profile.storyMap) profile.storyMap.owners[tileIndex] = attackerNationId;
+  const lostIds = [finishedGame.defenseGeneralId, ...(finishedGame.defenseViceIds || [])].filter(Boolean);
+  profile.storyLostCharacterIds = profile.storyLostCharacterIds || [];
+  for (const id of lostIds) {
+    if (!profile.storyLostCharacterIds.includes(id)) profile.storyLostCharacterIds.push(id);
+  }
+
+  let text;
+  if (isNativeCapital) {
+    resultTitle.textContent = '王都陥落……';
+    text = ` ${attackerName}に黎明の王都を攻め落とされました。このキャンペーンは終了します……新たな国盗りを始めましょう。`;
+    profile.storyMap = null;
+    profile.storyAlliances = [];
+    profile.storyDifficulty = null;
+    profile.storyReserve = { infantry: 0, archer: 0, cavalry: 0 };
+    profile.storyBattlesCompleted = 0;
+    profile.storyLostCharacterIds = [];
+    profile.storyLastGeneral = null;
+    profile.storyLastViceGenerals = [];
+    profile.storyPendingDefense = null;
+  } else {
+    text = ` ${attackerName}に拠点を奪われました。出陣した武将はこのキャンペーン中、大将・副将として選べなくなります。`;
+  }
+  saveProfile(profile);
+  return text;
+}
+
 $('restart-btn').addEventListener('click', () => {
   resultModal.hidden = true;
   leaveOnlineGame();
+  if (profile.storyPendingDefense) {
+    showScreen('menu');
+    showCapitalDefensePrompt();
+    return;
+  }
   showScreen('menu');
 });
 
@@ -1998,6 +2142,11 @@ function updateGemDisplay() {
   shopGemCountEl.textContent = `💎 ${profile.gems}`;
 }
 
+// 「能力値順」ソート用の派生値(兵種の基礎ランク + レアリティのランクボーナス)
+function characterPower(char) {
+  return UNIT_STATS[char.type].rank + (RARITY_RANK_BONUS[char.rarity] || 0);
+}
+
 function buildCharacterProgressRow(char) {
   const count = profile.characterCardCounts[char.id] || 0;
   const unlocked = profile.unlockedCharacters.includes(char.id);
@@ -2005,9 +2154,10 @@ function buildCharacterProgressRow(char) {
   const row = document.createElement('div');
   row.className = 'char-progress-row' + (bonus > 0 ? ' enhanced' : unlocked ? ' unlocked' : ' locked-row');
   const statusText = unlocked ? `🤝仲間${bonus > 0 ? `(+${bonus})` : ''}` : `未仲間(あと${CHARACTER_GACHA_UNLOCK_COUNT - count}枚)`;
+  const ratePct = (characterDropRate(char) * 100).toFixed(2);
   row.innerHTML = `
     <img src="${getPortraitDataUrl(char.id)}" alt="" />
-    <span class="char-progress-name">${RARITY_LABEL[char.rarity]} ${char.name}<span class="hint">(${char.title})</span></span>
+    <span class="char-progress-name">${RARITY_LABEL[char.rarity]} ${char.name}<span class="hint">(${char.title})</span><span class="char-progress-rate">確率${ratePct}%</span></span>
     <span class="char-progress-count">${statusText} ${count}枚</span>
   `;
   return row;
@@ -2023,6 +2173,23 @@ function refreshShopUI() {
   characterGacha10Btn.disabled = profile.gems < ten_cost;
   characterGachaFirstHint.hidden = !!profile.characterGacha10Used;
   collectionSummaryEl.textContent = `所持キャラ: ${profile.unlockedCharacters.length} / ${CHARACTER_CARDS.length}`;
+
+  const banner = getActivePickupBanner();
+  pickupGachaSection.hidden = !banner;
+  if (banner) {
+    pickupBannerTitle.textContent = banner.title;
+    pickupBannerPortraits.innerHTML = banner.featuredCharacterIds
+      .map((id) => {
+        const c = findCharacterCard(id);
+        return c ? `<div class="pickup-portrait"><img src="${getPortraitDataUrl(id)}" alt="" /><span>${c.name}</span></div>` : '';
+      })
+      .join('');
+    pickupGachaCostEl.textContent = CHARACTER_GACHA_COST;
+    pickupGacha10CostEl.textContent = ten_cost;
+    pickupGachaBtn.disabled = profile.gems < CHARACTER_GACHA_COST;
+    pickupGacha10Btn.disabled = profile.gems < ten_cost;
+    pickupGachaFirstHint.hidden = !!profile.characterGacha10Used;
+  }
 }
 
 shopBtn.addEventListener('click', () => {
@@ -2041,6 +2208,7 @@ for (const n of ALL_NATIONS_FOR_FILTER) {
 }
 
 openCollectionBtn.addEventListener('click', () => {
+  renderFeaturedCharacters();
   renderCollection();
   collectionModal.hidden = false;
 });
@@ -2070,6 +2238,8 @@ function renderCollection() {
     if (sortKey === 'count') return (profile.characterCardCounts[b.id] || 0) - (profile.characterCardCounts[a.id] || 0);
     if (sortKey === 'name') return a.name.localeCompare(b.name, 'ja');
     if (sortKey === 'type') return a.type.localeCompare(b.type) || b.rarity - a.rarity;
+    if (sortKey === 'rate') return characterDropRate(b) - characterDropRate(a);
+    if (sortKey === 'power') return characterPower(b) - characterPower(a);
     return b.rarity - a.rarity || (profile.characterCardCounts[b.id] || 0) - (profile.characterCardCounts[a.id] || 0);
   });
 
@@ -2080,13 +2250,23 @@ function renderCollection() {
   }
 }
 
+function renderFeaturedCharacters() {
+  collectionFeaturedList.innerHTML = '';
+  const featured = CHARACTER_CARDS.filter((c) => c.rarity === 5);
+  for (const char of featured) {
+    const row = buildCharacterProgressRow(char);
+    row.classList.add('featured-card');
+    collectionFeaturedList.appendChild(row);
+  }
+}
+
 // ---------- 武将カードガチャの演出(カプセルをタップして開封し、レアリティに応じた光の演出で結果を見せる) ----------
 const RARITY_COLOR = { 5: '#ffb300', 4: '#c77dff', 3: '#4ea8de', 2: '#7fd18a', 1: '#bbbbbb' };
 let gachaQueue = [];
 let gachaQueueIndex = 0;
 
-function pullCharacterGachaOnce() {
-  const won = CHARACTER_CARDS[Math.floor(Math.random() * CHARACTER_CARDS.length)];
+function pullCharacterGachaOnce(banner = null) {
+  const won = banner ? pickWeightedCharacterCardForBanner(banner) : pickWeightedCharacterCard(CHARACTER_CARDS);
   const wasUnlocked = profile.unlockedCharacters.includes(won.id);
   const bonusBefore = characterCollectionBonus(profile.characterCardCounts[won.id] || 0);
   profile.characterCardCounts[won.id] = (profile.characterCardCounts[won.id] || 0) + 1;
@@ -2112,6 +2292,28 @@ characterGacha10Btn.addEventListener('click', () => {
   profile.characterGacha10Used = true;
   const results = [];
   for (let i = 0; i < 10; i++) results.push(pullCharacterGachaOnce());
+  saveProfile(profile);
+  refreshShopUI();
+  startGachaPullSequence(results);
+});
+
+pickupGachaBtn.addEventListener('click', () => {
+  const banner = getActivePickupBanner();
+  if (!banner || !spendGems(profile, CHARACTER_GACHA_COST)) return;
+  const result = pullCharacterGachaOnce(banner);
+  saveProfile(profile);
+  refreshShopUI();
+  startGachaPullSequence([result]);
+});
+
+pickupGacha10Btn.addEventListener('click', () => {
+  const banner = getActivePickupBanner();
+  if (!banner) return;
+  const cost = profile.characterGacha10Used ? CHARACTER_GACHA_TEN_COST : CHARACTER_GACHA_TEN_FIRST_COST;
+  if (!spendGems(profile, cost)) return;
+  profile.characterGacha10Used = true;
+  const results = [];
+  for (let i = 0; i < 10; i++) results.push(pullCharacterGachaOnce(banner));
   saveProfile(profile);
   refreshShopUI();
   startGachaPullSequence(results);
@@ -2295,6 +2497,7 @@ installBtn.addEventListener('click', async () => {
 const backGuardedOverlays = [
   gachaPullModal,
   collectionModal,
+  capitalDefenseModal,
   loginBonusModal,
   tutorialModal,
   cpuModePanel,
@@ -2335,6 +2538,7 @@ function closeTopmostOverlay() {
   const overlays = [
     gachaPullModal,
     collectionModal,
+    capitalDefenseModal,
     loginBonusModal,
     shopModal,
     rulesModal,

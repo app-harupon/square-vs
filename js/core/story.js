@@ -79,6 +79,10 @@ export function findPlayerCharacter(id) {
   return PLAYER_CHARACTERS.find((c) => c.id === id) || PLAYER_CHARACTERS[0];
 }
 
+// 拠点防衛戦で大将・副将に付与する追加ランクボーナス(通常の合戦より守備側が少し有利になる)。
+// 数値は暫定値であり、後日調整する前提のプレースホルダー。
+export const DEFENSE_BATTLE_RANK_BONUS = 2;
+
 // 兵種構成の割合表現(多め/少なめ等)を実際の比率に変換するための重み
 const RATIO_WEIGHT = { dominant: 6, high: 3, even: 2, low: 1, minimal: 0.3, none: 0 };
 
