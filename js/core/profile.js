@@ -18,6 +18,11 @@ const DEFAULT_PROFILE = {
   storyLastGeneral: null, // 直近で選んだ大将キャラクターID(次回のデフォルト選択に使う)
   storyLastViceGenerals: [], // 直近で選んだ副将キャラクターIDの配列
   storyBattlesCompleted: 0, // ストーリーモードで終えた領土の戦闘数(5戦ごとに世界中の国の兵力が10%増強される)
+  characterCardCounts: {}, // 武将ガチャで集めたキャラクターカードの枚数({ キャラID: 枚数 })
+  unlockedCharacters: [], // 10枚集めて仲間になった(CPU対戦で使用可能な)キャラクターID一覧
+  useCardsInCpuBattle: false, // 通常CPU対戦で「カードあり」を選んだかどうか(次回のデフォルトに使う)
+  cpuLastGeneral: null, // 通常CPU対戦で直近に選んだ大将キャラクターID
+  cpuLastViceGenerals: [], // 通常CPU対戦で直近に選んだ副将キャラクターIDの配列
 };
 
 export function loadProfile() {

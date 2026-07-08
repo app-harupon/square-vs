@@ -3,10 +3,12 @@ import {
   UNIT_TYPES,
   randomUnitType,
   initialHand,
+  makeSkillCard,
   INITIAL_SOLDIERS,
   MAX_SQUAD_SIZE,
   GENERAL_UPGRADE_BONUS,
   ELITE_CHANCE,
+  CHARACTER_ENHANCE_RANK_BONUS,
 } from './units.js';
 import { createSquad, canSplit, canMerge } from './squad.js';
 import {
@@ -18,24 +20,36 @@ import {
   inBounds,
 } from './board.js';
 import { calcCombat } from './combat.js';
+import { findCharacterCard, CHARACTER_GACHA_ENHANCE_COUNT } from './story.js';
 
 export function other(playerId) {
   return playerId === 'A' ? 'B' : 'A';
 }
 
-export function generateSquadTemplates(mode, ownerId, profile = null) {
-  const generalType = randomUnitType();
+// キャラクターカードが武将ガチャで20枚集まっている(強化済み)場合、ランクボーナスを追加で乗せる
+function applyCharacterEnhance(squad, characterId, profile) {
+  const count = profile?.characterCardCounts?.[characterId] || 0;
+  if (count >= CHARACTER_GACHA_ENHANCE_COUNT) squad.stats.rank += CHARACTER_ENHANCE_RANK_BONUS;
+}
+
+export function generateSquadTemplates(mode, ownerId, profile = null, generalCharacterId = null, viceGeneralCharacterIds = []) {
+  const generalChar = generalCharacterId ? findCharacterCard(generalCharacterId) : null;
+  const generalType = generalChar ? generalChar.type : randomUnitType();
   const general = createSquad({ ownerId, type: generalType, isGeneral: true });
   if (profile?.unlockedGenerals?.includes(generalType)) {
     general.stats.rank += GENERAL_UPGRADE_BONUS;
     general.isEliteGeneral = true;
   }
+  if (generalChar) applyCharacterEnhance(general, generalChar.id, profile);
   const list = [general];
 
-  // 副将(ノーマル1体・大規模2体)を追加する
+  // 副将(ノーマル1体・大規模2体)を追加する。カード選択があれば選んだキャラクターの兵種で固定する
   const viceGeneralCount = mode.viceGeneralCount || 0;
   for (let i = 0; i < viceGeneralCount; i++) {
-    list.push(createSquad({ ownerId, type: randomUnitType(), isViceGeneral: true }));
+    const viceChar = viceGeneralCharacterIds[i] ? findCharacterCard(viceGeneralCharacterIds[i]) : null;
+    const viceSquad = createSquad({ ownerId, type: viceChar ? viceChar.type : randomUnitType(), isViceGeneral: true });
+    if (viceChar) applyCharacterEnhance(viceSquad, viceChar.id, profile);
+    list.push(viceSquad);
   }
 
   // 一般部隊はランダムな兵種を振り分けた後、兵種ごとに合算した「総数」を1つの部隊として表示する
@@ -90,19 +104,27 @@ export function generateNationSquadTemplates(ownerId, totalTroops, compositionRa
   return list;
 }
 
-export function createGame(mode, profile = null) {
+// generalCharacterId/viceGeneralCharacterIds: 通常CPU対戦で「カードあり」を選んだ時の武将カード指定(未指定なら従来通りランダム編成)
+export function createGame(mode, profile = null, generalCharacterId = null, viceGeneralCharacterIds = []) {
   const grid = generateTerrain(mode.boardSize, mode.deployDepth);
+  const generalChar = generalCharacterId ? findCharacterCard(generalCharacterId) : null;
+  const playerHand = initialHand(profile?.unlockedCards);
+  if (generalChar) playerHand.push(makeSkillCard(generalChar.skillName, generalChar.skillDesc, generalChar.skillEffect, 'general'));
+  for (const charId of viceGeneralCharacterIds) {
+    const char = findCharacterCard(charId);
+    if (char) playerHand.push(makeSkillCard(char.skillName, char.skillDesc, char.skillEffect, char.type));
+  }
   const state = {
     mode,
     size: mode.boardSize,
     grid,
     squads: [],
     players: {
-      A: { id: 'A', name: 'あなた', hand: initialHand(profile?.unlockedCards) },
+      A: { id: 'A', name: generalChar ? generalChar.name : 'あなた', hand: playerHand },
       B: { id: 'B', name: 'CPU', hand: initialHand() },
     },
     deployQueue: {
-      A: generateSquadTemplates(mode, 'A', profile),
+      A: generateSquadTemplates(mode, 'A', profile, generalCharacterId, viceGeneralCharacterIds),
       B: generateSquadTemplates(mode, 'B'),
     },
     phase: 'deploy',

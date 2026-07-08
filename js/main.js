@@ -2,7 +2,7 @@ import { MODES, getMode } from './core/modes.js';
 import { canSplit, canMerge } from './core/squad.js';
 import { isAdjacent } from './core/board.js';
 import { TERRAIN } from './core/terrain.js';
-import { MIN_ACTIVE_SOLDIERS, MAX_SQUAD_SIZE, UNIT_TYPES, PREMIUM_CARD_DEFS, GENERAL_UPGRADE_TYPES, UNIT_STATS } from './core/units.js';
+import { MIN_ACTIVE_SOLDIERS, MAX_SQUAD_SIZE, UNIT_TYPES, PREMIUM_CARD_DEFS, GENERAL_UPGRADE_TYPES, UNIT_STATS, CHARACTER_ENHANCE_RANK_BONUS } from './core/units.js';
 import { loadProfile, saveProfile, checkLoginBonus, spendGems } from './core/profile.js';
 import {
   createGame,
@@ -27,7 +27,7 @@ import {
   other,
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
-import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter, effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold } from './core/story.js';
+import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter, effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold, CHARACTER_CARDS, findCharacterCard, CHARACTER_GACHA_UNLOCK_COUNT, CHARACTER_GACHA_ENHANCE_COUNT } from './core/story.js';
 import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops } from './core/storyBattle.js';
 import {
   generateWorldMap,
@@ -62,6 +62,8 @@ const cpuModePanel = $('cpu-mode-panel');
 const topCpuBtn = $('top-cpu-btn');
 const cpuModeBackBtn = $('cpu-mode-back-btn');
 const modeListDots = $('mode-list-dots');
+const cpuCardToggle = $('cpu-card-toggle');
+const cpuCardToggleHint = $('cpu-card-toggle-hint');
 const turnIndicator = $('turn-indicator');
 const canvas = $('board-canvas');
 const canvasWrap = $('canvas-wrap');
@@ -112,6 +114,9 @@ const cardGachaBtn = $('card-gacha-btn');
 const generalGachaBtn = $('general-gacha-btn');
 const cardOwnedList = $('card-owned-list');
 const generalOwnedList = $('general-owned-list');
+const characterGachaBtn = $('character-gacha-btn');
+const characterOwnedList = $('character-owned-list');
+const characterGachaCostEl = $('character-gacha-cost');
 const gachaResultModal = $('gacha-result-modal');
 const gachaResultBody = $('gacha-result-body');
 const loginBonusModal = $('login-bonus-modal');
@@ -156,6 +161,7 @@ const storyTileCancelBtn = $('story-tile-cancel-btn');
 
 const CARD_GACHA_COST = 150;
 const GENERAL_GACHA_COST = 200;
+const CHARACTER_GACHA_COST = 150;
 
 let profile = loadProfile();
 
@@ -228,7 +234,7 @@ function buildMenu() {
     const btn = document.createElement('button');
     btn.className = `mode-card ${mode.id}`;
     btn.innerHTML = `<b>${mode.name}</b><span>${mode.desc}</span>`;
-    btn.addEventListener('click', () => startGame(mode.id));
+    btn.addEventListener('click', () => handleModeCardClick(mode.id));
     modeList.appendChild(btn);
 
     const dot = document.createElement('span');
@@ -267,10 +273,22 @@ topCpuBtn.addEventListener('click', () => {
   topModeList.hidden = true;
   cpuModePanel.hidden = false;
   requestAnimationFrame(updateModeDots);
+  updateCpuCardToggleUI();
 });
 cpuModeBackBtn.addEventListener('click', () => {
   cpuModePanel.hidden = true;
   topModeList.hidden = false;
+});
+
+function updateCpuCardToggleUI() {
+  const hasCharacters = profile.unlockedCharacters.length > 0;
+  cpuCardToggle.disabled = !hasCharacters;
+  cpuCardToggle.checked = hasCharacters && !!profile.useCardsInCpuBattle;
+  cpuCardToggleHint.textContent = hasCharacters ? '' : '(ガチャで武将を仲間にすると使えます)';
+}
+cpuCardToggle.addEventListener('change', () => {
+  profile.useCardsInCpuBattle = cpuCardToggle.checked;
+  saveProfile(profile);
 });
 
 function startGame(modeId) {
@@ -279,6 +297,29 @@ function startGame(modeId) {
   myId = 'A';
   game = createGame(getMode(modeId), profile);
   enterGameScreen();
+}
+
+function handleModeCardClick(modeId) {
+  if (cpuCardToggle.checked && profile.unlockedCharacters.length > 0) {
+    const unlockedRoster = CHARACTER_CARDS.filter((c) => profile.unlockedCharacters.includes(c.id));
+    const mode = getMode(modeId);
+    openCharacterSelect(
+      (generalId, viceIds) => {
+        isOnlineGame = false;
+        isHost = false;
+        myId = 'A';
+        game = createGame(mode, profile, generalId, viceIds);
+        enterGameScreen();
+      },
+      {
+        roster: unlockedRoster,
+        viceLimit: mode.viceGeneralCount || 0,
+        persistKeys: { general: 'cpuLastGeneral', vice: 'cpuLastViceGenerals' },
+      }
+    );
+  } else {
+    startGame(modeId);
+  }
 }
 
 function startOnlineGameAsHost(modeId) {
@@ -434,17 +475,25 @@ function startStoryBattle(tileIndex) {
   });
 }
 
-// ---------- 出陣メンバー(大将・副将)選択 ----------
+// ---------- 出陣メンバー(大将・副将)選択(ストーリーモード・通常CPU対戦「カードあり」の両方で共用) ----------
 let charSelectGeneral = null;
 let charSelectVice = new Set();
 let charSelectOnConfirm = null;
 let charSelectViceLimit = 0;
+let charSelectRoster = PLAYER_CHARACTERS;
+let charSelectPersistKeys = { general: 'storyLastGeneral', vice: 'storyLastViceGenerals' };
 
-function openCharacterSelect(onConfirm) {
+function openCharacterSelect(onConfirm, opts = {}) {
+  const roster = opts.roster || PLAYER_CHARACTERS;
+  const persistKeys = opts.persistKeys || { general: 'storyLastGeneral', vice: 'storyLastViceGenerals' };
   charSelectOnConfirm = onConfirm;
-  charSelectGeneral = findPlayerCharacter(profile.storyLastGeneral || 'noa').id;
-  charSelectViceLimit = viceGeneralCountFor(getPlayerTotalTroops(profile));
-  charSelectVice = new Set((profile.storyLastViceGenerals || []).filter((id) => id !== charSelectGeneral).slice(0, charSelectViceLimit));
+  charSelectRoster = roster;
+  charSelectPersistKeys = persistKeys;
+  charSelectViceLimit = opts.viceLimit ?? viceGeneralCountFor(getPlayerTotalTroops(profile));
+  const defaultGeneral = profile[persistKeys.general];
+  charSelectGeneral = (roster.find((c) => c.id === defaultGeneral) || roster[0])?.id || null;
+  const defaultVice = profile[persistKeys.vice] || [];
+  charSelectVice = new Set(defaultVice.filter((id) => id !== charSelectGeneral && roster.some((c) => c.id === id)).slice(0, charSelectViceLimit));
   renderCharacterSelect();
   characterSelectModal.hidden = false;
 }
@@ -452,7 +501,7 @@ function openCharacterSelect(onConfirm) {
 function renderCharacterSelect() {
   charSelectViceRemaining.textContent = Math.max(0, charSelectViceLimit - charSelectVice.size);
   characterSelectList.innerHTML = '';
-  for (const char of PLAYER_CHARACTERS) {
+  for (const char of charSelectRoster) {
     const isGeneral = charSelectGeneral === char.id;
     const isVice = charSelectVice.has(char.id);
     const card = document.createElement('div');
@@ -491,8 +540,8 @@ function renderCharacterSelect() {
 }
 
 characterSelectConfirmBtn.addEventListener('click', () => {
-  profile.storyLastGeneral = charSelectGeneral;
-  profile.storyLastViceGenerals = [...charSelectVice];
+  profile[charSelectPersistKeys.general] = charSelectGeneral;
+  profile[charSelectPersistKeys.vice] = [...charSelectVice];
   saveProfile(profile);
   characterSelectModal.hidden = true;
   const cb = charSelectOnConfirm;
@@ -1955,6 +2004,24 @@ function refreshShopUI() {
     chip.textContent = owned ? `${UNIT_STATS[type].label}の名将 入手済み` : `${UNIT_STATS[type].label}の名将 未入手`;
     generalOwnedList.appendChild(chip);
   }
+
+  characterGachaCostEl.textContent = CHARACTER_GACHA_COST;
+  characterGachaBtn.disabled = profile.gems < CHARACTER_GACHA_COST;
+  characterOwnedList.innerHTML = '';
+  for (const char of CHARACTER_CARDS) {
+    const count = profile.characterCardCounts[char.id] || 0;
+    const unlocked = profile.unlockedCharacters.includes(char.id);
+    const enhanced = count >= CHARACTER_GACHA_ENHANCE_COUNT;
+    const row = document.createElement('div');
+    row.className = 'char-progress-row' + (enhanced ? ' enhanced' : unlocked ? ' unlocked' : '');
+    const statusIcon = enhanced ? '⭐仲間(強化)' : unlocked ? '🤝仲間' : '';
+    row.innerHTML = `
+      <img src="${getPortraitDataUrl(char.id)}" alt="" />
+      <span class="char-progress-name">${char.name}<span class="hint">(${char.title})</span></span>
+      <span class="char-progress-count">${statusIcon} ${count}/${CHARACTER_GACHA_ENHANCE_COUNT}枚</span>
+    `;
+    characterOwnedList.appendChild(row);
+  }
 }
 
 shopBtn.addEventListener('click', () => {
@@ -1988,6 +2055,38 @@ generalGachaBtn.addEventListener('click', () => {
   refreshShopUI();
   showGachaResult(`👑 ${UNIT_STATS[won].label}の名将`, `${UNIT_STATS[won].label}が大将の時、ランク+1されます`);
 });
+
+characterGachaBtn.addEventListener('click', () => {
+  if (!spendGems(profile, CHARACTER_GACHA_COST)) return;
+  const won = CHARACTER_CARDS[Math.floor(Math.random() * CHARACTER_CARDS.length)];
+  const wasUnlocked = profile.unlockedCharacters.includes(won.id);
+  const wasEnhanced = (profile.characterCardCounts[won.id] || 0) >= CHARACTER_GACHA_ENHANCE_COUNT;
+  profile.characterCardCounts[won.id] = (profile.characterCardCounts[won.id] || 0) + 1;
+  const count = profile.characterCardCounts[won.id];
+  const justUnlocked = !wasUnlocked && count >= CHARACTER_GACHA_UNLOCK_COUNT;
+  const justEnhanced = !wasEnhanced && count >= CHARACTER_GACHA_ENHANCE_COUNT;
+  if (justUnlocked) profile.unlockedCharacters.push(won.id);
+  saveProfile(profile);
+  refreshShopUI();
+  showCharacterGachaResult(won, count, justUnlocked, justEnhanced);
+});
+
+function showCharacterGachaResult(char, count, justUnlocked, justEnhanced) {
+  const progress = Math.min(count, CHARACTER_GACHA_ENHANCE_COUNT);
+  const milestoneText = justEnhanced
+    ? `<p class="hint">⭐${char.name}の能力がアップしました!(ランク+${CHARACTER_ENHANCE_RANK_BONUS})</p>`
+    : justUnlocked
+      ? `<p class="hint">🤝${char.name}が仲間になりました!CPU対戦の「カードあり」で使えます。</p>`
+      : `<p class="hint">${char.name}のカード: ${count}/${CHARACTER_GACHA_ENHANCE_COUNT}枚(${count >= CHARACTER_GACHA_UNLOCK_COUNT ? '能力アップまであと' + (CHARACTER_GACHA_ENHANCE_COUNT - count) + '枚' : '仲間になるまであと' + (CHARACTER_GACHA_UNLOCK_COUNT - count) + '枚'})</p>`;
+  gachaResultBody.innerHTML = `
+    <img src="${getPortraitDataUrl(char.id)}" alt="" style="width:72px;height:72px;border-radius:50%;display:block;margin:0 auto 10px;" />
+    <p><b>${char.name}(${char.title})</b></p>
+    <p class="hint">✨${char.skillName}: ${char.skillDesc}</p>
+    ${milestoneText}
+  `;
+  gachaResultModal.hidden = false;
+  playSfx(justUnlocked || justEnhanced ? 'capital' : 'cardUse');
+}
 
 function showLoginBonusIfAny() {
   const bonus = checkLoginBonus(profile);
