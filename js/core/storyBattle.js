@@ -44,6 +44,11 @@ export function balancedTileTroopCount(naturalCount, playerTotalTroops, battlesC
   return Math.round(Math.min(max, Math.max(min, naturalCount)));
 }
 
+// 首都(王城)攻略戦は、通常マスのように総兵力を全マスへ均等配分するのではなく、
+// その国が存亡をかけて主力を集結させたものとして、総兵力の約8割を駐留軍とする
+// (この後さらにbalancedTileTroopCountで難易度カーブのクランプをかけるので、鬼畜化はしない)
+export const CAPITAL_GARRISON_SHARE = 0.8;
+
 function generatePlayerSquadTemplates(ownerId, profile, generalCharacterId, viceGeneralCharacterIds) {
   const generalChar = findPlayerCharacter(generalCharacterId);
   const reserve = { ...(profile?.storyReserve || {}) }; // ローカルコピー(副将の頭数分を差し引く計算用。プロフィール本体は変更しない)

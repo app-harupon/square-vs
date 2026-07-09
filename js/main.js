@@ -37,7 +37,7 @@ import {
   RARITY_LABEL, RARITY_RANK_BONUS, characterDropRate, pickWeightedCharacterCard,
   getActivePickupBanner, pickWeightedCharacterCardForBanner,
 } from './core/characters.js';
-import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops, balancedTileTroopCount } from './core/storyBattle.js';
+import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops, balancedTileTroopCount, CAPITAL_GARRISON_SHARE } from './core/storyBattle.js';
 import {
   generateWorldMap,
   getAttackableTiles,
@@ -549,10 +549,12 @@ function startStoryBattle(tileIndex) {
   if (!nation) return;
   const total = totalTileCount(map, nationId);
   const difficulty = findDifficulty(profile.storyDifficulty);
-  const naturalCount = Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier);
-  const tileTroopCount = Math.max(1000, balancedTileTroopCount(naturalCount, getPlayerTotalTroops(profile), profile.storyBattlesCompleted));
-  const landmark = isCapitalTile(map, tileIndex) ? 'castle' : isFortressTile(map, tileIndex) ? 'fortress' : null;
   const isCapital = isCapitalTile(map, tileIndex);
+  const naturalCount = isCapital
+    ? Math.round(effectiveNationTroops(nation, profile) * CAPITAL_GARRISON_SHARE * difficulty.scoreMultiplier)
+    : Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier);
+  const tileTroopCount = Math.max(1000, balancedTileTroopCount(naturalCount, getPlayerTotalTroops(profile), profile.storyBattlesCompleted));
+  const landmark = isCapital ? 'castle' : isFortressTile(map, tileIndex) ? 'fortress' : null;
   const roster = storyCharacterRoster();
   openCharacterSelect((generalId, viceIds, formation) => {
     isOnlineGame = false;
