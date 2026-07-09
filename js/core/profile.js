@@ -29,6 +29,8 @@ const DEFAULT_PROFILE = {
   storyPendingDefense: null, // 保留中の拠点防衛戦 { tileIndex, attackerNationId } | null。
                               // ストーリー戦闘直後に王都・拠点への侵攻が起きた場合にセットし、迎撃バトルが決着するまで保持する
                               // (アプリを再起動しても消えないよう、プロフィールに保存しておく)
+  storyRecruitedCharacterIds: [], // 首都タイルでの勝利によって、このキャンペーン中に仲間になった国の君主ID一覧
+                                   // (ガチャの武将コレクション unlockedCharacters とは完全に別管理)
 };
 
 export function loadProfile() {

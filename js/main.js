@@ -27,7 +27,11 @@ import {
   other,
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
-import { STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter, effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold } from './core/story.js';
+import {
+  STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter,
+  effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold,
+  PROLOGUE_TEXT, dialogueSetFor, isRecruitable, getNationForDifficulty, recruitableCharacterFor,
+} from './core/story.js';
 import {
   CHARACTER_CARDS, findCharacterCard, CHARACTER_GACHA_UNLOCK_COUNT, CHARACTER_GACHA_STEP, characterCollectionBonus,
   RARITY_LABEL, RARITY_RANK_BONUS, characterDropRate, pickWeightedCharacterCard,
@@ -83,6 +87,10 @@ const cardCutinIcon = $('card-cutin-icon');
 const cardCutinType = $('card-cutin-type');
 const cardCutinName = $('card-cutin-name');
 const cardCutinDesc = $('card-cutin-desc');
+const nationQuoteBanner = $('nation-quote-banner');
+const nationQuotePortrait = $('nation-quote-portrait');
+const nationQuoteName = $('nation-quote-name');
+const nationQuoteBody = $('nation-quote-body');
 const splitBtn = $('split-btn');
 const shootBtn = $('shoot-btn');
 const cardBtn = $('card-btn');
@@ -177,6 +185,9 @@ const turnorderResult = $('turnorder-result');
 const storyBtn = $('top-story-btn');
 const storyDifficultyModal = $('story-difficulty-modal');
 const storyDifficultyList = $('story-difficulty-list');
+const storyPrologueModal = $('story-prologue-modal');
+const storyPrologueText = $('story-prologue-text');
+const storyPrologueStartBtn = $('story-prologue-start-btn');
 const storyModal = $('story-modal');
 const storyMapGrid = $('story-map-grid');
 const storyMapLegend = $('story-map-legend');
@@ -493,17 +504,23 @@ storyTileAttackBtn.addEventListener('click', () => {
   startStoryBattle(tileIndex);
 });
 
+function storyCharacterRoster() {
+  const lostIds = profile.storyLostCharacterIds || [];
+  const recruited = (profile.storyRecruitedCharacterIds || []).map(recruitableCharacterFor).filter(Boolean);
+  return [...PLAYER_CHARACTERS, ...recruited].filter((c) => !lostIds.includes(c.id));
+}
+
 function startStoryBattle(tileIndex) {
   const map = profile.storyMap;
   const nationId = map.tiles[tileIndex];
-  const nation = findNation(nationId);
+  const nation = getNationForDifficulty(nationId, profile.storyDifficulty);
   if (!nation) return;
   const total = totalTileCount(map, nationId);
   const difficulty = findDifficulty(profile.storyDifficulty);
   const tileTroopCount = Math.max(500, Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier));
   const landmark = isCapitalTile(map, tileIndex) ? 'castle' : isFortressTile(map, tileIndex) ? 'fortress' : null;
-  const lostIds = profile.storyLostCharacterIds || [];
-  const roster = PLAYER_CHARACTERS.filter((c) => !lostIds.includes(c.id));
+  const isCapital = isCapitalTile(map, tileIndex);
+  const roster = storyCharacterRoster();
   openCharacterSelect((generalId, viceIds) => {
     isOnlineGame = false;
     isHost = false;
@@ -511,20 +528,25 @@ function startStoryBattle(tileIndex) {
     game = createStoryGame(nation, tileTroopCount, profile, landmark, generalId, viceIds);
     game.storyTileIndex = tileIndex;
     enterGameScreen();
+    if (isCapital) {
+      const dialogueSet = dialogueSetFor(nationId, profile.storyDifficulty);
+      game.storyDialogueSet = dialogueSet;
+      game.storyCombatEventCount = 0;
+      showNationQuote(nation, dialogueSet?.battleStart);
+    }
   }, { roster: roster.length ? roster : PLAYER_CHARACTERS });
 }
 
 // ---------- 拠点防衛戦(王都・敵国から奪った首都タイルへの侵犯を、自動没収ではなく実戦闘で決着させる) ----------
 function startCapitalDefenseBattle(tileIndex, attackerNationId) {
   const map = profile.storyMap;
-  const nation = findNation(attackerNationId);
+  const nation = getNationForDifficulty(attackerNationId, profile.storyDifficulty);
   if (!nation) return;
   const total = totalTileCount(map, nation.id) || 1;
   const difficulty = findDifficulty(profile.storyDifficulty);
   const tileTroopCount = Math.max(500, Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier));
   const isNativeCapital = map.tiles[tileIndex] === PLAYER_NATION.id;
-  const lostIds = profile.storyLostCharacterIds || [];
-  const roster = PLAYER_CHARACTERS.filter((c) => !lostIds.includes(c.id));
+  const roster = storyCharacterRoster();
 
   if (roster.length === 0) {
     // 迎撃できる武将が誰も残っていない: 選択UIを開かず自動的に防衛失敗として処理する
@@ -551,6 +573,10 @@ function startCapitalDefenseBattle(tileIndex, attackerNationId) {
       game.defenseGeneralId = generalId;
       game.defenseViceIds = viceIds;
       enterGameScreen();
+      const dialogueSet = dialogueSetFor(attackerNationId, profile.storyDifficulty);
+      game.storyDialogueSet = dialogueSet;
+      game.storyCombatEventCount = 0;
+      showNationQuote(nation, dialogueSet?.battleStart);
     },
     { roster, persistKeys: { general: 'storyLastGeneral', vice: 'storyLastViceGenerals' }, allowCancel: false }
   );
@@ -668,12 +694,18 @@ function buildStoryDifficultyList() {
       profile.storyDifficulty = diff.id;
       saveProfile(profile);
       storyDifficultyModal.hidden = true;
-      buildStoryMap();
-      storyModal.hidden = false;
+      storyPrologueText.textContent = PROLOGUE_TEXT;
+      storyPrologueModal.hidden = false;
     });
     storyDifficultyList.appendChild(card);
   }
 }
+
+storyPrologueStartBtn.addEventListener('click', () => {
+  storyPrologueModal.hidden = true;
+  buildStoryMap();
+  storyModal.hidden = false;
+});
 
 storyBtn.addEventListener('click', () => {
   if (profile.storyPendingDefense) {
@@ -1245,6 +1277,27 @@ cardCutin.addEventListener('pointerdown', () => {
   cardCutin.hidden = true;
 });
 
+// ---------- 君主セリフバナー(ストーリーモードの首都攻防戦のみ) ----------
+let nationQuoteTimer = null;
+function showNationQuote(nation, text) {
+  if (!nation || !text) return;
+  nationQuotePortrait.src = getPortraitDataUrl(nation.id);
+  nationQuoteName.textContent = nation.monarch;
+  nationQuoteBody.textContent = text;
+  nationQuoteBanner.hidden = true;
+  void nationQuoteBanner.offsetWidth;
+  nationQuoteBanner.hidden = false;
+  clearTimeout(nationQuoteTimer);
+  nationQuoteTimer = setTimeout(() => {
+    nationQuoteBanner.hidden = true;
+  }, 3200);
+  playSfx('select');
+}
+nationQuoteBanner.addEventListener('pointerdown', () => {
+  clearTimeout(nationQuoteTimer);
+  nationQuoteBanner.hidden = true;
+});
+
 // ---------- マスの説明 ----------
 const TERRAIN_INFO = {
   [TERRAIN.PLAIN]: { label: '平地', icon: '🌿', desc: '移動コスト1。特別な効果はありません。' },
@@ -1783,10 +1836,23 @@ function afterCombatAction() {
   clearSelectionSilent();
   combatModalFromPeer = false;
   if (combat) {
+    handleStoryCombatEvent(game);
     if (isOnlineGame) broadcastState();
     showCombatModal(combat);
   } else {
     afterPlayerAction();
+  }
+}
+
+// 首都攻防戦での「スキル発動時」「煽り」演出: 実際のカード使用ではなく、戦闘の節目(1戦目・2戦目)に紐付ける
+// (CPUはカードを使わないため、既存の戦闘検出をそのまま流用する形にしている)
+function handleStoryCombatEvent(g) {
+  if (!g?.storyDialogueSet) return;
+  g.storyCombatEventCount = (g.storyCombatEventCount || 0) + 1;
+  if (g.storyCombatEventCount === 1) {
+    showNationQuote(g.storyNation, g.storyDialogueSet.skillActivate);
+  } else if (g.storyCombatEventCount === 2) {
+    showNationQuote(g.storyNation, g.storyDialogueSet.taunt);
   }
 }
 
@@ -1882,6 +1948,7 @@ async function runCpuTurn() {
     render();
     const isNewCombat = !!game.lastCombat && game.lastCombat !== prevCombat;
     if (isNewCombat) {
+      handleStoryCombatEvent(game);
       // 相手からの攻撃結果もプレイヤーの攻撃時と同様に表示し、閉じるまでターンを進めない
       await showCombatModalAndWait(game.lastCombat);
     }
@@ -1924,6 +1991,23 @@ function showResult() {
 }
 
 // 合戦の勝敗を国盗り合戦の世界地図に反映する(勝敗を問わず、他国情勢の背景シミュレーションは進行する)
+// 首都級の戦闘に勝った時、「敗北時」セリフ + 仲間になれる国なら「仲間になる時」セリフも連結し、
+// profile.storyRecruitedCharacterIds に登録する(ガチャの武将コレクションとは完全に別管理)
+function appendNationDefeatDialogue(nation, difficultyId, prof) {
+  if (!nation) return '';
+  const dialogueSet = dialogueSetFor(nation.id, difficultyId);
+  if (!dialogueSet) return '';
+  let text = dialogueSet.defeat ? ` ${nation.monarch}「${dialogueSet.defeat}」` : '';
+  if (isRecruitable(nation.id, difficultyId)) {
+    prof.storyRecruitedCharacterIds = prof.storyRecruitedCharacterIds || [];
+    if (!prof.storyRecruitedCharacterIds.includes(nation.id)) {
+      prof.storyRecruitedCharacterIds.push(nation.id);
+    }
+    if (dialogueSet.join) text += ` ${nation.monarch}「${dialogueSet.join}」🤝${nation.monarch}が仲間になりました!`;
+  }
+  return text;
+}
+
 function resolveStoryBattleOutcome(finishedGame, won) {
   const map = profile.storyMap;
   const owners = map.owners;
@@ -1969,6 +2053,9 @@ function resolveStoryBattleOutcome(finishedGame, won) {
         ? ` 首都陥落により${nation.name}を総取りしました(残り${remainingBefore - 1}マスもまとめて制圧)!`
         : ` ${nation.name}を完全に平定しました!`
       : ` ${nation.name}の領土を1マス制圧しました(残り${remainingBefore - 1}/${total})。`;
+    if (capturedCapital) {
+      text += appendNationDefeatDialogue(nation, profile.storyDifficulty, profile);
+    }
   }
 
   // 領土の戦闘を5回終えるごとに世界中の国の兵力が10%強化される(勝敗を問わずカウントする)
@@ -2019,8 +2106,10 @@ function resolveCapitalDefenseOutcome(finishedGame, won) {
   const attackerName = findNation(attackerNationId)?.name || attackerNationId;
 
   if (won) {
+    let text = ` ${attackerName}の猛攻を凌ぎきり、拠点の防衛に成功しました!`;
+    text += appendNationDefeatDialogue(findNation(attackerNationId), profile.storyDifficulty, profile);
     saveProfile(profile);
-    return ` ${attackerName}の猛攻を凌ぎきり、拠点の防衛に成功しました!`;
+    return text;
   }
 
   if (profile.storyMap) profile.storyMap.owners[tileIndex] = attackerNationId;
@@ -2040,6 +2129,7 @@ function resolveCapitalDefenseOutcome(finishedGame, won) {
     profile.storyReserve = { infantry: 0, archer: 0, cavalry: 0 };
     profile.storyBattlesCompleted = 0;
     profile.storyLostCharacterIds = [];
+    profile.storyRecruitedCharacterIds = [];
     profile.storyLastGeneral = null;
     profile.storyLastViceGenerals = [];
     profile.storyPendingDefense = null;
@@ -2498,6 +2588,7 @@ const backGuardedOverlays = [
   gachaPullModal,
   collectionModal,
   capitalDefenseModal,
+  storyPrologueModal,
   loginBonusModal,
   tutorialModal,
   cpuModePanel,
@@ -2539,6 +2630,7 @@ function closeTopmostOverlay() {
     gachaPullModal,
     collectionModal,
     capitalDefenseModal,
+    storyPrologueModal,
     loginBonusModal,
     shopModal,
     rulesModal,

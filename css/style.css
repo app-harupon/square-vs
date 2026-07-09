@@ -729,6 +729,37 @@ body {
   100% { opacity: 0; }
 }
 
+/* ---------- 君主セリフバナー ---------- */
+.nation-quote-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 420px);
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  background: rgba(20, 20, 30, 0.88);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  animation: nationQuotePop 0.3s ease;
+  cursor: default;
+}
+.nation-quote-banner[hidden] { display: none; }
+.nation-quote-portrait { width: 46px; height: 46px; border-radius: 50%; border: 2px solid #ffb300; flex-shrink: 0; object-fit: cover; }
+.nation-quote-text { display: flex; flex-direction: column; gap: 2px; color: #fff; }
+.nation-quote-name { font-size: 0.75rem; color: #ffb300; letter-spacing: 0.04em; }
+.nation-quote-body { font-size: 0.82rem; line-height: 1.4; }
+
+@keyframes nationQuotePop {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.story-prologue-text { white-space: pre-wrap; line-height: 1.8; font-size: 0.88rem; }
+
 .combat-body .side { margin-bottom: 12px; padding: 10px; border-radius: var(--radius-md); background: #f5f6ff; }
 .combat-body .side.attacker { background: #eaf3ff; }
 .combat-body .side.defender { background: #fff0ee; }

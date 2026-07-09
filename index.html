@@ -138,6 +138,15 @@
     </div>
   </div>
 
+  <!-- ===== 君主セリフバナー(ストーリーモードの首都攻防戦のみ) ===== -->
+  <div id="nation-quote-banner" class="nation-quote-banner" hidden>
+    <img id="nation-quote-portrait" class="nation-quote-portrait" alt="" />
+    <div class="nation-quote-text">
+      <b id="nation-quote-name" class="nation-quote-name"></b>
+      <span id="nation-quote-body" class="nation-quote-body"></span>
+    </div>
+  </div>
+
   <!-- ===== 戦闘結果ポップアップ ===== -->
   <div id="combat-modal" class="modal-overlay" hidden>
     <div class="modal-card">
@@ -416,6 +425,15 @@
       <h2>📖 難易度を選択</h2>
       <p class="hint">黎明の大地キャンペーンの難易度を選んでください。後から変更はできません。</p>
       <div id="story-difficulty-list" class="story-difficulty-list"></div>
+    </div>
+  </div>
+
+  <!-- ===== ストーリーモード: プロローグ(新規キャンペーン開始時に1回だけ) ===== -->
+  <div id="story-prologue-modal" class="modal-overlay" hidden>
+    <div class="modal-card modal-scroll">
+      <h2>📜 プロローグ</h2>
+      <p id="story-prologue-text" class="story-prologue-text"></p>
+      <button id="story-prologue-start-btn" class="btn btn-primary">始める</button>
     </div>
   </div>
 
