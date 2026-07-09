@@ -29,51 +29,171 @@
     <p class="splash-hint">タップしてスキップ</p>
   </section>
 
-  <!-- ===== メニュー画面 ===== -->
+  <!-- ===== メニュー画面(下部タブ付きホーム) ===== -->
   <section id="menu-screen" class="screen" hidden>
-    <div id="menu-card" class="menu-card">
+    <div id="home-header" class="home-header">
+      <h1 class="logo">⚔️ Square VS</h1>
       <div class="gem-bar">
         <span id="gem-count">💎 0</span>
         <button id="mute-btn" class="icon-btn" title="音を切り替え">🔊</button>
-        <button id="shop-btn" class="btn btn-secondary btn-small">🛒 ショップ</button>
       </div>
-      <h1 class="logo">⚔️ Square VS</h1>
-      <p class="tagline">兵を分け、束ね、地を制す。</p>
-
-      <!-- 最初の3択(CPU対戦・オンライン対戦・ストーリーモード) -->
-      <div id="top-mode-list" class="top-mode-list">
-        <button id="top-cpu-btn" class="top-mode-card cpu">
-          <span class="top-mode-icon">⚔️</span>
-          <b>CPU対戦</b>
-          <span>1人でオフライン対戦</span>
-        </button>
-        <button id="top-online-btn" class="top-mode-card online">
-          <span class="top-mode-icon">🌐</span>
-          <b>オンライン対戦</b>
-          <span>合言葉で友達と対戦</span>
-        </button>
-        <button id="top-story-btn" class="top-mode-card story">
-          <span class="top-mode-icon">📖</span>
-          <b>ストーリーモード</b>
-          <span>国盗り合戦キャンペーン</span>
-        </button>
-      </div>
-
-      <!-- CPU対戦選択時のみ表示するルール選択カルーセル -->
-      <div id="cpu-mode-panel" class="cpu-mode-panel" hidden>
-        <button id="cpu-mode-back-btn" class="carousel-back-btn">← もどる</button>
-        <div id="mode-list" class="mode-carousel"></div>
-        <div id="mode-list-dots" class="carousel-dots"></div>
-        <label id="cpu-card-toggle-row" class="cpu-card-toggle-row">
-          <input type="checkbox" id="cpu-card-toggle" />
-          <span>🎴 カードを使う<span id="cpu-card-toggle-hint" class="hint"></span></span>
-        </label>
-      </div>
-
-      <button id="rules-btn" class="btn btn-ghost">遊び方</button>
-      <button id="tutorial-btn" class="btn btn-ghost">🔰 チュートリアル</button>
-      <button id="install-btn" class="btn btn-secondary" hidden>📲 ホーム画面に追加</button>
     </div>
+
+    <div id="home-pager" class="home-pager">
+      <!-- ===== バトル ===== -->
+      <div class="home-page" data-page="battle">
+        <div class="home-page-inner">
+          <p class="tagline">兵を分け、束ね、地を制す。</p>
+
+          <!-- 最初の3択(CPU対戦・オンライン対戦・ストーリーモード) -->
+          <div id="top-mode-list" class="top-mode-list">
+            <button id="top-cpu-btn" class="top-mode-card cpu">
+              <span class="top-mode-icon">⚔️</span>
+              <b>CPU対戦</b>
+              <span>1人でオフライン対戦</span>
+            </button>
+            <button id="top-online-btn" class="top-mode-card online">
+              <span class="top-mode-icon">🌐</span>
+              <b>オンライン対戦</b>
+              <span>合言葉で友達と対戦</span>
+            </button>
+            <button id="top-story-btn" class="top-mode-card story">
+              <span class="top-mode-icon">📖</span>
+              <b>ストーリーモード</b>
+              <span>国盗り合戦キャンペーン</span>
+            </button>
+          </div>
+
+          <!-- CPU対戦選択時のみ表示するルール選択カルーセル -->
+          <div id="cpu-mode-panel" class="cpu-mode-panel" hidden>
+            <button id="cpu-mode-back-btn" class="carousel-back-btn">← もどる</button>
+            <div id="mode-list" class="mode-carousel"></div>
+            <div id="mode-list-dots" class="carousel-dots"></div>
+            <label id="cpu-card-toggle-row" class="cpu-card-toggle-row">
+              <input type="checkbox" id="cpu-card-toggle" />
+              <span>🎴 カードを使う<span id="cpu-card-toggle-hint" class="hint"></span></span>
+            </label>
+          </div>
+
+          <button id="rules-btn" class="btn btn-ghost">遊び方</button>
+          <button id="tutorial-btn" class="btn btn-ghost">🔰 チュートリアル</button>
+          <button id="install-btn" class="btn btn-secondary" hidden>📲 ホーム画面に追加</button>
+        </div>
+      </div>
+
+      <!-- ===== カード ===== -->
+      <div class="home-page" data-page="cards">
+        <div class="home-page-inner">
+          <h2>🎴 カード</h2>
+
+          <div class="cards-section">
+            <h3>⚔️ ストーリー武将</h3>
+            <p class="hint">ストーリーモードで大将・副将として使える武将たちです。各国の首都タイルでの勝利によって仲間になります。</p>
+            <div id="story-cards-list" class="story-cards-list"></div>
+          </div>
+
+          <div class="cards-section">
+            <h3>🗂 ガチャ武将図鑑</h3>
+            <div class="collection-featured">
+              <h4>✨ 注目の武将</h4>
+              <div id="collection-featured-list" class="collection-featured-list"></div>
+            </div>
+            <div class="collection-controls">
+              <label class="collection-field">並べ替え
+                <select id="collection-sort">
+                  <option value="rarity">レアリティ順</option>
+                  <option value="count">所持枚数順</option>
+                  <option value="name">名前順</option>
+                  <option value="type">兵種順</option>
+                  <option value="rate">確率順</option>
+                  <option value="power">能力値順</option>
+                </select>
+              </label>
+              <label class="collection-field">状態
+                <select id="collection-filter-status">
+                  <option value="">すべて</option>
+                  <option value="owned">仲間のみ</option>
+                  <option value="locked">未仲間のみ</option>
+                </select>
+              </label>
+              <label class="collection-field">レアリティ
+                <select id="collection-filter-rarity">
+                  <option value="">すべて</option>
+                  <option value="5">☆5</option>
+                  <option value="4">☆4</option>
+                  <option value="3">☆3</option>
+                  <option value="2">☆2</option>
+                  <option value="1">☆1</option>
+                </select>
+              </label>
+              <label class="collection-field">兵種
+                <select id="collection-filter-type">
+                  <option value="">すべて</option>
+                  <option value="infantry">歩兵</option>
+                  <option value="archer">弓兵</option>
+                  <option value="cavalry">騎兵</option>
+                </select>
+              </label>
+              <label class="collection-field">国
+                <select id="collection-filter-nation">
+                  <option value="">すべて</option>
+                </select>
+              </label>
+            </div>
+            <p id="collection-count-summary" class="hint"></p>
+            <div id="collection-list" class="character-owned-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ショップ ===== -->
+      <div class="home-page" data-page="shop">
+        <div class="home-page-inner">
+          <h2>🛒 ショップ</h2>
+          <div class="gem-bar"><span id="shop-gem-count">💎 0</span></div>
+          <p class="hint">今後、追加コンテンツが登場予定です。武将カードは「🎯 ガチャ」タブから手に入れられます。</p>
+        </div>
+      </div>
+
+      <!-- ===== ガチャ ===== -->
+      <div class="home-page" data-page="gacha">
+        <div class="home-page-inner">
+          <h2>🎯 ガチャ</h2>
+          <p class="hint">ジェムを使って武将カードをガチャで手に入れられます(実際の課金は発生しません)</p>
+
+          <div class="shop-section">
+            <h3>🎴 武将カードガチャ</h3>
+            <p class="hint">ストーリーモードに登場する武将のカードが手に入ります。1枚引くだけでその武将が仲間になりCPU対戦で使えるようになり、10枚集めるごとに能力がアップし続けます。</p>
+            <div class="gacha-btn-row">
+              <button id="character-gacha-btn" class="btn btn-primary">1回引く<br /><span class="cost">💎<span id="character-gacha-cost"></span></span></button>
+              <button id="character-gacha10-btn" class="btn btn-primary gacha-btn-ten">10連引く<br /><span class="cost">💎<span id="character-gacha10-cost"></span></span></button>
+            </div>
+            <p id="character-gacha-first-hint" class="hint gacha-first-hint" hidden>✨初回10連は特別価格!</p>
+            <p id="collection-summary" class="hint"></p>
+            <button id="open-collection-btn" class="btn btn-secondary">🎴 カードタブで図鑑を見る</button>
+          </div>
+
+          <div class="shop-section" id="pickup-gacha-section" hidden>
+            <h3>🎯 ピックアップガチャ</h3>
+            <p id="pickup-banner-title" class="pickup-banner-title"></p>
+            <div id="pickup-banner-portraits" class="pickup-banner-portraits"></div>
+            <div class="gacha-btn-row">
+              <button id="pickup-gacha-btn" class="btn btn-primary">1回引く<br /><span class="cost">💎<span id="pickup-gacha-cost"></span></span></button>
+              <button id="pickup-gacha10-btn" class="btn btn-primary gacha-btn-ten">10連引く<br /><span class="cost">💎<span id="pickup-gacha10-cost"></span></span></button>
+            </div>
+            <p id="pickup-gacha-first-hint" class="hint gacha-first-hint" hidden>✨初回10連は特別価格!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 下部タブバー ===== -->
+    <nav id="home-tabbar" class="home-tabbar">
+      <button class="home-tab-btn" data-page="battle"><span class="home-tab-icon">⚔️</span><span>バトル</span></button>
+      <button class="home-tab-btn" data-page="cards"><span class="home-tab-icon">🎴</span><span>カード</span></button>
+      <button class="home-tab-btn" data-page="shop"><span class="home-tab-icon">🛒</span><span>ショップ</span></button>
+      <button class="home-tab-btn" data-page="gacha"><span class="home-tab-icon">🎯</span><span>ガチャ</span></button>
+    </nav>
   </section>
 
   <!-- ===== ゲーム画面 ===== -->
@@ -102,7 +222,7 @@
 
     <footer id="bottombar">
       <div id="deploy-panel" class="panel" hidden>
-        <p class="hint deploy-hint">駒をつかんで盤面までドラッグすると配置できます。配置済みの駒も、つかんで動かしたり盤面外にドラッグすると配置し直せます</p>
+        <p class="hint deploy-hint">駒をつかんで盤面までドラッグすると配置できます(マスをタップしてからもう一度タップでも配置できます)。配置済みの駒も、つかんで動かしたり盤面外にドラッグすると配置し直せます</p>
         <div id="deploy-list" class="deploy-list"></div>
         <div class="panel-actions">
           <button id="deploy-undo-btn" class="btn btn-action" disabled>↩️ 1つ戻る</button>
@@ -249,95 +369,6 @@
   </div>
 
   <!-- ===== ショップ ===== -->
-  <div id="shop-modal" class="modal-overlay" hidden>
-    <div class="modal-card modal-scroll">
-      <h2>🛒 ショップ</h2>
-      <p class="hint">ジェムを使って武将カードをガチャで手に入れられます(実際の課金は発生しません)</p>
-      <div class="gem-bar"><span id="shop-gem-count">💎 0</span></div>
-
-      <div class="shop-section">
-        <h3>🎴 武将カードガチャ</h3>
-        <p class="hint">ストーリーモードに登場する武将のカードが手に入ります。1枚引くだけでその武将が仲間になりCPU対戦で使えるようになり、10枚集めるごとに能力がアップし続けます。</p>
-        <div class="gacha-btn-row">
-          <button id="character-gacha-btn" class="btn btn-primary">1回引く<br /><span class="cost">💎<span id="character-gacha-cost"></span></span></button>
-          <button id="character-gacha10-btn" class="btn btn-primary gacha-btn-ten">10連引く<br /><span class="cost">💎<span id="character-gacha10-cost"></span></span></button>
-        </div>
-        <p id="character-gacha-first-hint" class="hint gacha-first-hint" hidden>✨初回10連は特別価格!</p>
-        <p id="collection-summary" class="hint"></p>
-        <button id="open-collection-btn" class="btn btn-secondary">🗂 図鑑を見る</button>
-      </div>
-
-      <div class="shop-section" id="pickup-gacha-section" hidden>
-        <h3>🎯 ピックアップガチャ</h3>
-        <p id="pickup-banner-title" class="pickup-banner-title"></p>
-        <div id="pickup-banner-portraits" class="pickup-banner-portraits"></div>
-        <div class="gacha-btn-row">
-          <button id="pickup-gacha-btn" class="btn btn-primary">1回引く<br /><span class="cost">💎<span id="pickup-gacha-cost"></span></span></button>
-          <button id="pickup-gacha10-btn" class="btn btn-primary gacha-btn-ten">10連引く<br /><span class="cost">💎<span id="pickup-gacha10-cost"></span></span></button>
-        </div>
-        <p id="pickup-gacha-first-hint" class="hint gacha-first-hint" hidden>✨初回10連は特別価格!</p>
-      </div>
-
-      <button id="shop-close-btn" class="btn btn-ghost">閉じる</button>
-    </div>
-  </div>
-
-  <!-- ===== 武将図鑑(獲得したカードの一覧・並べ替え・絞り込み) ===== -->
-  <div id="collection-modal" class="modal-overlay" hidden>
-    <div class="modal-card modal-scroll">
-      <h2>🗂 武将図鑑</h2>
-      <div class="collection-featured">
-        <h3>✨ 注目の武将</h3>
-        <div id="collection-featured-list" class="collection-featured-list"></div>
-      </div>
-      <div class="collection-controls">
-        <label class="collection-field">並べ替え
-          <select id="collection-sort">
-            <option value="rarity">レアリティ順</option>
-            <option value="count">所持枚数順</option>
-            <option value="name">名前順</option>
-            <option value="type">兵種順</option>
-            <option value="rate">確率順</option>
-            <option value="power">能力値順</option>
-          </select>
-        </label>
-        <label class="collection-field">状態
-          <select id="collection-filter-status">
-            <option value="">すべて</option>
-            <option value="owned">仲間のみ</option>
-            <option value="locked">未仲間のみ</option>
-          </select>
-        </label>
-        <label class="collection-field">レアリティ
-          <select id="collection-filter-rarity">
-            <option value="">すべて</option>
-            <option value="5">☆5</option>
-            <option value="4">☆4</option>
-            <option value="3">☆3</option>
-            <option value="2">☆2</option>
-            <option value="1">☆1</option>
-          </select>
-        </label>
-        <label class="collection-field">兵種
-          <select id="collection-filter-type">
-            <option value="">すべて</option>
-            <option value="infantry">歩兵</option>
-            <option value="archer">弓兵</option>
-            <option value="cavalry">騎兵</option>
-          </select>
-        </label>
-        <label class="collection-field">国
-          <select id="collection-filter-nation">
-            <option value="">すべて</option>
-          </select>
-        </label>
-      </div>
-      <p id="collection-count-summary" class="hint"></p>
-      <div id="collection-list" class="character-owned-list"></div>
-      <button id="collection-close-btn" class="btn btn-ghost">閉じる</button>
-    </div>
-  </div>
-
   <!-- ===== ガチャ結果 ===== -->
   <div id="gacha-pull-modal" class="modal-overlay gacha-pull-overlay" hidden>
     <div class="gacha-pull-stage">
@@ -505,6 +536,13 @@
   </div>
 
 </div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@
 // rotateBy/tiltBy/zoomAt/animateMove/hasActiveAnimations/animations/camera)を持たせることで、
 // main.js / input.js 側の呼び出しコードを変えずに差し替えられるようにしている。
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import { RoundedBoxGeometry } from 'https://unpkg.com/three@0.160.0/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { TERRAIN } from '../core/terrain.js';
 import { isConcealedFrom } from '../core/rules.js';
 import { UNIT_TYPES } from '../core/units.js';
@@ -485,7 +486,11 @@ export class Renderer3D {
         const elevation = ELEVATION_UNIT[terrain] || 0;
         const height = terrain === TERRAIN.WATER ? 0.06 : BASE_THICKNESS + elevation;
         const centerY = terrain === TERRAIN.WATER ? -height / 2 : elevation - height / 2;
-        const geo = new THREE.BoxGeometry(TILE_SIZE * 0.985, height, TILE_SIZE * 0.985);
+        // マスの角を丸める。半径はマスの一番薄い辺(高さ)の半分を超えないよう安全にクランプする
+        const tileRadius = Math.min(0.05, height / 2 - 0.002, (TILE_SIZE * 0.985) / 2 - 0.002);
+        const geo = tileRadius > 0.005
+          ? new RoundedBoxGeometry(TILE_SIZE * 0.985, height, TILE_SIZE * 0.985, 2, tileRadius)
+          : new THREE.BoxGeometry(TILE_SIZE * 0.985, height, TILE_SIZE * 0.985);
         const matOpts = { color: TERRAIN_COLORS[terrain], roughness: 0.85 };
         if (terrain === TERRAIN.WATER) {
           matOpts.map = createWaterTexture();
@@ -510,7 +515,14 @@ export class Renderer3D {
         mesh.position.set(center.x, centerY, center.z);
         mesh.userData = { gx, gy };
         this.tileGroup.add(mesh);
-        this.tileMeshes.push({ mesh, gx, gy });
+        // タップ/ドラッグの当たり判定は見た目より一回り大きい透明メッシュで行う(指のズレに寛容にするため)。
+        // Three.jsのraycastはvisible=falseでも判定できるので、見た目のマスサイズは変えずに済む
+        const hitGeo = new THREE.BoxGeometry(TILE_SIZE * 1.15, height + 0.3, TILE_SIZE * 1.15);
+        const hitMesh = new THREE.Mesh(hitGeo);
+        hitMesh.visible = false;
+        hitMesh.position.set(center.x, centerY, center.z);
+        this.tileGroup.add(hitMesh);
+        this.tileMeshes.push({ mesh: hitMesh, gx, gy });
         this._addTerrainDecor(terrain, gx, gy, elevation);
       }
     }
@@ -596,7 +608,7 @@ export class Renderer3D {
       const elevation = this.elevationAt(state, gx, gy);
       const center = this.tileCenter(gx, gy, elevation + yOffset);
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(TILE_SIZE * 0.88, 0.02, TILE_SIZE * 0.88),
+        new RoundedBoxGeometry(TILE_SIZE * 0.88, 0.02, TILE_SIZE * 0.88, 1, 0.008),
         new THREE.MeshBasicMaterial({ color, transparent: true, opacity })
       );
       mesh.position.set(center.x, center.y, center.z);

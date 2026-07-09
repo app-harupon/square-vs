@@ -1,4 +1,4 @@
-const CACHE_NAME = 'warchess-cache-v40';
+const CACHE_NAME = 'warchess-cache-v41';
 const ASSETS = [
   './',
   './index.html',
@@ -30,7 +30,10 @@ const ASSETS = [
 
 // CDN(外部オリジン)から取得するアセットは、失敗してもインストール全体を失敗させないよう
 // ASSETSとは別に、ベストエフォートでキャッシュしておく
-const CDN_ASSETS = ['https://unpkg.com/three@0.160.0/build/three.module.js'];
+const CDN_ASSETS = [
+  'https://unpkg.com/three@0.160.0/build/three.module.js',
+  'https://unpkg.com/three@0.160.0/examples/jsm/geometries/RoundedBoxGeometry.js',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -1,14 +1,14 @@
 // ストーリーモード(『黎明の大地』)専用のゲーム開始・戦後処理ロジック。
 // core/rules.js の汎用部品を使いつつ、国家データ(story.js)と組み合わせる橋渡し役。
 import { generateTerrain } from './terrain.js';
-import { UNIT_TYPES, initialHand, makeSkillCard, ELITE_CHANCE, INITIAL_SOLDIERS } from './units.js';
+import { UNIT_TYPES, initialHand, makeSkillCard, ELITE_CHANCE, INITIAL_SOLDIERS, generalTroopCountFor } from './units.js';
 import { generateNationSquadTemplates } from './rules.js';
 import { createSquad } from './squad.js';
 import { PLAYER_NATION, findPlayerCharacter, DEFENSE_BATTLE_RANK_BONUS } from './story.js';
 
-// 両軍合わせた兵力規模に応じて盤面サイズを決める(小規模な合戦を無駄に広い盤で戦わせないため)
+// 両軍合わせた兵力規模に応じて盤面サイズを決める(小規模な合戦を無駄に広い盤で戦わせないため)。
+// 盤面は最大15x15までとする(30x30は操作しづらいため廃止)
 function boardSizeFor(combinedTroops) {
-  if (combinedTroops >= 20000) return { boardSize: 30, deployDepth: 3 };
   if (combinedTroops >= 5000) return { boardSize: 15, deployDepth: 2 };
   return { boardSize: 7, deployDepth: 1 };
 }
@@ -42,13 +42,14 @@ function generatePlayerSquadTemplates(ownerId, profile, generalCharacterId, vice
     return generateNationSquadTemplates(ownerId, PLAYER_NATION.totalTroops, PLAYER_NATION.composition, generalChar.type, profile);
   }
   // 予備兵力ストックから編成する(将軍は選択したキャラクターの持ち兵種で固定)
-  const general = createSquad({ ownerId, type: generalChar.type, isGeneral: true });
+  const commandCount = generalTroopCountFor(getPlayerTotalTroops(profile));
+  const general = createSquad({ ownerId, type: generalChar.type, isGeneral: true, count: commandCount });
   if (profile?.unlockedGenerals?.includes(generalChar.type)) general.isEliteGeneral = true;
   const list = [general];
   for (const charId of viceGeneralCharacterIds || []) {
     const char = findPlayerCharacter(charId);
-    list.push(createSquad({ ownerId, type: char.type, isViceGeneral: true }));
-    reserve[char.type] = Math.max(0, (reserve[char.type] || 0) - INITIAL_SOLDIERS);
+    list.push(createSquad({ ownerId, type: char.type, isViceGeneral: true, count: commandCount }));
+    reserve[char.type] = Math.max(0, (reserve[char.type] || 0) - commandCount);
   }
   for (const type of Object.values(UNIT_TYPES)) {
     if (reserve[type] > 0) list.push(createSquad({ ownerId, type, isElite: Math.random() < ELITE_CHANCE, count: reserve[type] }));

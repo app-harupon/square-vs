@@ -18,6 +18,13 @@ export const MIN_ACTIVE_SOLDIERS = 100;
 // 1マス(1部隊)あたりの最大人数
 export const MAX_SQUAD_SIZE = 500;
 
+// 総兵力の規模に応じて、大将・副将1部隊あたりの兵数を引き上げる(小規模な戦闘では現状通り100のまま)
+export function generalTroopCountFor(totalTroops) {
+  if (totalTroops > 3000) return 500;
+  if (totalTroops > 1000) return 200;
+  return INITIAL_SOLDIERS;
+}
+
 // 三すくみ: 歩兵 > 騎兵 > 弓兵 > 歩兵 (ランク差を埋めるため相性ボーナスは組み合わせごとに異なる)
 const BEATS = {
   [UNIT_TYPES.INFANTRY]: UNIT_TYPES.CAVALRY,

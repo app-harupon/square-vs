@@ -8,6 +8,7 @@ import {
   MAX_SQUAD_SIZE,
   GENERAL_UPGRADE_BONUS,
   ELITE_CHANCE,
+  generalTroopCountFor,
 } from './units.js';
 import { createSquad, canSplit, canMerge } from './squad.js';
 import {
@@ -34,9 +35,11 @@ function applyCharacterEnhance(squad, characterId, profile) {
 }
 
 export function generateSquadTemplates(mode, ownerId, profile = null, generalCharacterId = null, viceGeneralCharacterIds = []) {
+  const totalTroops = (mode.squadCount + (mode.viceGeneralCount || 0)) * INITIAL_SOLDIERS;
+  const commandCount = generalTroopCountFor(totalTroops);
   const generalChar = generalCharacterId ? findCharacterCard(generalCharacterId) : null;
   const generalType = generalChar ? generalChar.type : randomUnitType();
-  const general = createSquad({ ownerId, type: generalType, isGeneral: true });
+  const general = createSquad({ ownerId, type: generalType, isGeneral: true, count: commandCount });
   if (profile?.unlockedGenerals?.includes(generalType)) {
     general.stats.rank += GENERAL_UPGRADE_BONUS;
     general.isEliteGeneral = true;
@@ -48,7 +51,7 @@ export function generateSquadTemplates(mode, ownerId, profile = null, generalCha
   const viceGeneralCount = mode.viceGeneralCount || 0;
   for (let i = 0; i < viceGeneralCount; i++) {
     const viceChar = viceGeneralCharacterIds[i] ? findCharacterCard(viceGeneralCharacterIds[i]) : null;
-    const viceSquad = createSquad({ ownerId, type: viceChar ? viceChar.type : randomUnitType(), isViceGeneral: true });
+    const viceSquad = createSquad({ ownerId, type: viceChar ? viceChar.type : randomUnitType(), isViceGeneral: true, count: commandCount });
     if (viceChar) applyCharacterEnhance(viceSquad, viceChar.id, profile);
     list.push(viceSquad);
   }
@@ -80,7 +83,8 @@ function weightedType(ratios) {
 
 // 兵種構成比率・総兵力から出撃部隊テンプレートを組み立てる(ストーリーモード専用の汎用ユーティリティ)
 export function generateNationSquadTemplates(ownerId, totalTroops, compositionRatios, generalType, profile = null, viceGeneralCount = 0) {
-  const general = createSquad({ ownerId, type: generalType, isGeneral: true });
+  const commandCount = generalTroopCountFor(totalTroops);
+  const general = createSquad({ ownerId, type: generalType, isGeneral: true, count: commandCount });
   if (profile?.unlockedGenerals?.includes(generalType)) {
     general.stats.rank += GENERAL_UPGRADE_BONUS;
     general.isEliteGeneral = true;
@@ -88,10 +92,10 @@ export function generateNationSquadTemplates(ownerId, totalTroops, compositionRa
   const list = [general];
 
   for (let i = 0; i < viceGeneralCount; i++) {
-    list.push(createSquad({ ownerId, type: weightedType(compositionRatios), isViceGeneral: true }));
+    list.push(createSquad({ ownerId, type: weightedType(compositionRatios), isViceGeneral: true, count: commandCount }));
   }
 
-  const reservedForCommand = INITIAL_SOLDIERS * (1 + viceGeneralCount);
+  const reservedForCommand = commandCount * (1 + viceGeneralCount);
   const remainingSteps = Math.max(0, Math.round((totalTroops - reservedForCommand) / INITIAL_SOLDIERS));
   const counts = { [UNIT_TYPES.INFANTRY]: 0, [UNIT_TYPES.ARCHER]: 0, [UNIT_TYPES.CAVALRY]: 0 };
   for (let i = 0; i < remainingSteps; i++) {

@@ -61,7 +61,6 @@ const $ = (id) => document.getElementById(id);
 
 const splashScreen = $('splash-screen');
 const menuScreen = $('menu-screen');
-const menuCard = $('menu-card');
 const gameScreen = $('game-screen');
 const installBtn = $('install-btn');
 const muteBtn = $('mute-btn');
@@ -120,9 +119,10 @@ const confirmMessage = $('confirm-message');
 const confirmYesBtn = $('confirm-yes-btn');
 const confirmNoBtn = $('confirm-no-btn');
 const gemCountEl = $('gem-count');
-const shopBtn = $('shop-btn');
-const shopModal = $('shop-modal');
 const shopGemCountEl = $('shop-gem-count');
+const homePager = $('home-pager');
+const homeTabBtns = [...document.querySelectorAll('.home-tab-btn')];
+const storyCardsList = $('story-cards-list');
 const characterGachaBtn = $('character-gacha-btn');
 const characterGacha10Btn = $('character-gacha10-btn');
 const characterGachaFirstHint = $('character-gacha-first-hint');
@@ -138,8 +138,6 @@ const pickupGacha10CostEl = $('pickup-gacha10-cost');
 const pickupGachaFirstHint = $('pickup-gacha-first-hint');
 const collectionSummaryEl = $('collection-summary');
 const openCollectionBtn = $('open-collection-btn');
-const collectionModal = $('collection-modal');
-const collectionCloseBtn = $('collection-close-btn');
 const collectionSort = $('collection-sort');
 const collectionFilterStatus = $('collection-filter-status');
 const collectionFilterRarity = $('collection-filter-rarity');
@@ -1411,6 +1409,12 @@ function selectSquad(squad) {
 function addToSelectionGroup(squad) {
   if (!selection || selection.squad.type !== squad.type) return;
   if (selection.group.some((s) => s.id === squad.id)) return;
+  const allowDiagonal = squad.type === UNIT_TYPES.CAVALRY;
+  const touchesGroup = selection.group.some((s) => isAdjacent(s.x, s.y, squad.x, squad.y, allowDiagonal));
+  if (!touchesGroup) {
+    playSfx('error');
+    return;
+  }
   selection.group.push(squad);
   flashBanner(`${selection.group.length}部隊を選択中(まとめて移動できます)`);
   updateActionButtons();
@@ -2307,11 +2311,45 @@ function refreshShopUI() {
   }
 }
 
-shopBtn.addEventListener('click', () => {
-  refreshShopUI();
-  shopModal.hidden = false;
+// ---------- 下部タブ付きホーム画面(バトル・カード・ショップ・ガチャ) ----------
+const HOME_PAGE_NAMES = ['battle', 'cards', 'shop', 'gacha'];
+function scrollHomePagerTo(pageName) {
+  const idx = HOME_PAGE_NAMES.indexOf(pageName);
+  const page = homePager.children[idx];
+  if (!page) return;
+  homePager.scrollTo({ left: page.offsetLeft, behavior: 'smooth' });
+}
+function updateHomeTabActive() {
+  const center = homePager.scrollLeft + homePager.clientWidth / 2;
+  let closest = 0;
+  let closestDist = Infinity;
+  [...homePager.children].forEach((page, i) => {
+    const pageCenter = page.offsetLeft + page.clientWidth / 2;
+    const d = Math.abs(pageCenter - center);
+    if (d < closestDist) {
+      closestDist = d;
+      closest = i;
+    }
+  });
+  const pageName = HOME_PAGE_NAMES[closest];
+  for (const btn of homeTabBtns) btn.classList.toggle('active', btn.dataset.page === pageName);
+  if (pageName === 'shop' || pageName === 'gacha') refreshShopUI();
+  if (pageName === 'cards') {
+    renderFeaturedCharacters();
+    renderCollection();
+    renderStoryCards();
+  }
+}
+let homePagerScrollTimer = null;
+homePager.addEventListener('scroll', () => {
+  clearTimeout(homePagerScrollTimer);
+  homePagerScrollTimer = setTimeout(updateHomeTabActive, 60);
 });
-$('shop-close-btn').addEventListener('click', () => (shopModal.hidden = true));
+for (const btn of homeTabBtns) {
+  btn.addEventListener('click', () => scrollHomePagerTo(btn.dataset.page));
+}
+
+openCollectionBtn.addEventListener('click', () => scrollHomePagerTo('cards'));
 
 // ---------- 武将図鑑(獲得したカードの一覧・並べ替え・絞り込み) ----------
 const ALL_NATIONS_FOR_FILTER = [PLAYER_NATION, ...STORY_NATIONS];
@@ -2322,14 +2360,39 @@ for (const n of ALL_NATIONS_FOR_FILTER) {
   collectionFilterNation.appendChild(opt);
 }
 
-openCollectionBtn.addEventListener('click', () => {
-  renderFeaturedCharacters();
-  renderCollection();
-  collectionModal.hidden = false;
-});
-collectionCloseBtn.addEventListener('click', () => (collectionModal.hidden = true));
 for (const el of [collectionSort, collectionFilterStatus, collectionFilterRarity, collectionFilterType, collectionFilterNation]) {
   el.addEventListener('change', renderCollection);
+}
+
+// ---------- ストーリー武将カード(常設4人+首都陥落で仲間になる8ヶ国) ----------
+const STORY_RECRUITABLE_NATION_IDS = STORY_NATIONS.filter((n) => n.id !== 'haga').map((n) => n.id);
+function renderStoryCards() {
+  storyCardsList.innerHTML = '';
+  for (const char of PLAYER_CHARACTERS) {
+    storyCardsList.appendChild(buildStoryCharacterCard(char, PLAYER_NATION.color, true));
+  }
+  for (const nationId of STORY_RECRUITABLE_NATION_IDS) {
+    const char = recruitableCharacterFor(nationId);
+    if (!char) continue;
+    const nation = findNation(nationId);
+    const unlocked = (profile.storyRecruitedCharacterIds || []).includes(nationId);
+    storyCardsList.appendChild(buildStoryCharacterCard(char, nation?.color, unlocked));
+  }
+}
+function buildStoryCharacterCard(char, color, unlocked) {
+  const card = document.createElement('div');
+  card.className = 'character-card story-nation-card' + (unlocked ? '' : ' locked-card');
+  card.style.setProperty('--nation-color', color || '#ddd');
+  card.innerHTML = `
+    <img src="${getPortraitDataUrl(char.id)}" alt="" />
+    <div class="character-info">
+      <div class="character-name">${char.name} <span class="hint">(${UNIT_STATS[char.type].label})</span></div>
+      <div class="character-title">${char.title}</div>
+      <div class="character-skill">✨${char.skillName}: ${char.skillDesc}</div>
+    </div>
+    <span class="character-status${unlocked ? ' unlocked' : ''}">${unlocked ? '🤝仲間' : '未仲間'}</span>
+  `;
+  return card;
 }
 
 function renderCollection() {
@@ -2611,13 +2674,11 @@ installBtn.addEventListener('click', async () => {
 // それを消費して該当レイヤーを閉じるだけにする(閉じるボタン側の処理は変更不要)
 const backGuardedOverlays = [
   gachaPullModal,
-  collectionModal,
   capitalDefenseModal,
   storyPrologueModal,
   loginBonusModal,
   tutorialModal,
   cpuModePanel,
-  shopModal,
   rulesModal,
   confirmModal,
   deployAmountModal,
@@ -2653,11 +2714,9 @@ function closeTopmostOverlay() {
   }
   const overlays = [
     gachaPullModal,
-    collectionModal,
     capitalDefenseModal,
     storyPrologueModal,
     loginBonusModal,
-    shopModal,
     rulesModal,
     confirmModal,
     deployAmountModal,
@@ -2705,6 +2764,7 @@ document.addEventListener('pointerdown', (e) => {
 // ---------- 初期化 ----------
 buildMenu();
 showScreen('menu');
+updateHomeTabActive();
 registerServiceWorker();
 updateGemDisplay();
 initSplash();
@@ -2715,7 +2775,7 @@ function initSplash() {
     if (splashDone) return;
     splashDone = true;
     splashScreen.classList.add('closing');
-    menuCard.classList.add('menu-enter');
+    menuScreen.classList.add('menu-enter');
     setTimeout(() => {
       splashScreen.hidden = true;
     }, 400);

@@ -2,6 +2,9 @@
 
 const LONG_PRESS_MS = 450;
 const LONG_PRESS_MOVE_TOLERANCE = 6;
+// ピンチでズームしただけのつもりが、指のブレで意図せず回転してしまうのを防ぐための遊び(度数)。
+// ジェスチャー開始角度からこの角度を超えて動いて初めて回転を適用し始める
+const PINCH_ROTATE_DEADZONE_DEG = 8;
 
 export class InputController {
   constructor(canvas, renderer, { onTap, onLongPress, isDraggable, onDragStart, onDragUpdate, onDragEnd, onCameraChange }) {
@@ -24,6 +27,8 @@ export class InputController {
     this.lastPinchDist = null;
     this.lastPinchAngle = null;
     this.lastMid = null;
+    this.pinchAngleAtStart = null;
+    this.pinchRotationActive = false;
 
     canvas.addEventListener('pointerdown', this.onDown.bind(this));
     window.addEventListener('pointermove', this.onMove.bind(this));
@@ -80,6 +85,8 @@ export class InputController {
       const [a, b] = [...this.pointers.values()];
       this.lastPinchDist = dist(a, b);
       this.lastPinchAngle = Math.atan2(b.y - a.y, b.x - a.x);
+      this.pinchAngleAtStart = this.lastPinchAngle;
+      this.pinchRotationActive = false;
       this.lastMid = mid(a, b);
     }
   }
@@ -142,7 +149,15 @@ export class InputController {
         const scaleDelta = d / this.lastPinchDist;
         this.applyZoom(scaleDelta, m);
         if (this.lastPinchAngle != null) {
-          this.renderer.rotateBy(ang - this.lastPinchAngle);
+          // ジェスチャー開始角度からの累積回転が遊びを超えるまでは回転を適用しない
+          // (ズームだけのつもりで指がわずかにブレても回転しないようにする)
+          if (!this.pinchRotationActive) {
+            const cumulativeDeg = Math.abs(angleDiff(ang, this.pinchAngleAtStart)) * (180 / Math.PI);
+            if (cumulativeDeg > PINCH_ROTATE_DEADZONE_DEG) this.pinchRotationActive = true;
+          }
+          if (this.pinchRotationActive) {
+            this.renderer.rotateBy(angleDiff(ang, this.lastPinchAngle));
+          }
         }
         this.onCameraChange();
       }
@@ -196,4 +211,8 @@ function dist(a, b) {
 }
 function mid(a, b) {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+// 2つの角度(ラジアン)の差を、±πをまたぐ場合も正しく最短方向で返す
+function angleDiff(a, b) {
+  return Math.atan2(Math.sin(a - b), Math.cos(a - b));
 }

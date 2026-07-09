@@ -31,8 +31,8 @@ export const MODES = {
   large: {
     id: 'large',
     name: '大規模バトルモード',
-    desc: '30x30・1陣営25部隊+副将2。分隊・統合を駆使する本格戦。',
-    boardSize: 30,
+    desc: '15x15・1陣営25部隊+副将2。分隊・統合を駆使する本格戦。',
+    boardSize: 15,
     deployDepth: 3,
     squadCount: 25, // 大将1 + 一般24
     viceGeneralCount: 2,
