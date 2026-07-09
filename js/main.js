@@ -1056,9 +1056,19 @@ $('auto-deploy-btn').addEventListener('click', () => {
 });
 
 $('finish-deploy-btn').addEventListener('click', () => {
-  if (game.deployQueue[myId].length > 0) {
-    autoDeployRemaining(game, myId);
+  if (game.deployQueue[myId].some((s) => s.isGeneral)) {
+    // 大将が未配置のまま開戦はできない(エラー音+一時的なメッセージで知らせる)
+    playSfx('error');
+    vibrate(80);
+    const prevText = turnIndicator.textContent;
+    turnIndicator.textContent = '⚠️ 大将を配置してから配置完了してください';
+    setTimeout(() => {
+      if (game.phase === 'deploy') turnIndicator.textContent = prevText;
+    }, 1600);
+    return;
   }
+  // 配置しなかった部隊はこの戦闘には連れて行かない(全軍を強制的に自動配置することはしない)
+  game.deployQueue[myId] = [];
   if (isOnlineGame) {
     deployReady[myId] = true;
     selectedDeployIndex = null;
