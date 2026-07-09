@@ -192,6 +192,7 @@ const storyModal = $('story-modal');
 const storyMapGrid = $('story-map-grid');
 const storyMapLegend = $('story-map-legend');
 const storyCloseBtn = $('story-close-btn');
+const storyResetBtn = $('story-reset-btn');
 const storyReserveEl = $('story-reserve');
 const storyTileModal = $('story-tile-modal');
 const storyTileTitle = $('story-tile-title');
@@ -510,6 +511,21 @@ function storyCharacterRoster() {
   return [...PLAYER_CHARACTERS, ...recruited].filter((c) => !lostIds.includes(c.id));
 }
 
+// ストーリーモードのキャンペーン進行状態だけをすべて初期状態に戻す(王都陥落時と、手動リセット時の両方で使う)。
+// ジェム・ガチャ・武将図鑑・通常CPU対戦の設定など、ストーリー以外のプロフィールには一切触れない
+function resetStoryCampaign(prof) {
+  prof.storyMap = null;
+  prof.storyAlliances = [];
+  prof.storyDifficulty = null;
+  prof.storyReserve = { infantry: 0, archer: 0, cavalry: 0 };
+  prof.storyBattlesCompleted = 0;
+  prof.storyLostCharacterIds = [];
+  prof.storyRecruitedCharacterIds = [];
+  prof.storyLastGeneral = null;
+  prof.storyLastViceGenerals = [];
+  prof.storyPendingDefense = null;
+}
+
 function startStoryBattle(tileIndex) {
   const map = profile.storyMap;
   const nationId = map.tiles[tileIndex];
@@ -722,6 +738,14 @@ storyBtn.addEventListener('click', () => {
 });
 storyCloseBtn.addEventListener('click', () => {
   storyModal.hidden = true;
+});
+storyResetBtn.addEventListener('click', () => {
+  showConfirm('ストーリーモードのキャンペーンをリセットしますか?(領土・仲間になった武将・難易度などが失われ、最初からやり直せます。ジェムやガチャの武将コレクションは失われません)', () => {
+    resetStoryCampaign(profile);
+    saveProfile(profile);
+    storyModal.hidden = true;
+    showScreen('menu');
+  });
 });
 
 function enterGameScreen() {
@@ -2123,16 +2147,7 @@ function resolveCapitalDefenseOutcome(finishedGame, won) {
   if (isNativeCapital) {
     resultTitle.textContent = '王都陥落……';
     text = ` ${attackerName}に黎明の王都を攻め落とされました。このキャンペーンは終了します……新たな国盗りを始めましょう。`;
-    profile.storyMap = null;
-    profile.storyAlliances = [];
-    profile.storyDifficulty = null;
-    profile.storyReserve = { infantry: 0, archer: 0, cavalry: 0 };
-    profile.storyBattlesCompleted = 0;
-    profile.storyLostCharacterIds = [];
-    profile.storyRecruitedCharacterIds = [];
-    profile.storyLastGeneral = null;
-    profile.storyLastViceGenerals = [];
-    profile.storyPendingDefense = null;
+    resetStoryCampaign(profile);
   } else {
     text = ` ${attackerName}に拠点を奪われました。出陣した武将はこのキャンペーン中、大将・副将として選べなくなります。`;
   }
