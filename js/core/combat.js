@@ -1,13 +1,14 @@
 import { TERRAIN, ELEVATION, TERRAIN_DEFENSE } from './terrain.js';
-import { advantageBonus, GENERAL_COMBAT_BONUS, VICE_GENERAL_COMBAT_BONUS } from './units.js';
+import { advantageBonus, GENERAL_COMBAT_BONUS, VICE_GENERAL_COMBAT_BONUS, FORMATION_RANK_BONUS } from './units.js';
 import { squadAt, orthogonalNeighbors } from './board.js';
 
 /**
  * 1回の戦闘を解決する純粋関数。副作用なし(呼び出し側が結果を反映する)。
  * originTerrain: 攻撃側が「行動開始時に立っていたマス」の地形(奇襲判定用)
  * isRanged: 弓兵の射撃(反撃なし・移動不要)かどうか
+ * attackerFormation/defenderFormation: それぞれの陣営が選んだ陣形('attack'|'defense'|null)
  */
-export function calcCombat({ attacker, defender, grid, size, squads, originTerrain, isRanged }) {
+export function calcCombat({ attacker, defender, grid, size, squads, originTerrain, isRanged, attackerFormation, defenderFormation }) {
   const attackerLog = [];
   const defenderLog = [];
 
@@ -46,6 +47,16 @@ export function calcCombat({ attacker, defender, grid, size, squads, originTerra
     defenderLog.push({ label: '副将ボーナス', value: VICE_GENERAL_COMBAT_BONUS });
   }
 
+  // 陣形ボーナス(配置フェーズ前に自軍全体で選んだ1つの陣形。攻撃陣は攻撃時、防御陣は防御時のみ加算)
+  if (attackerFormation === 'attack') {
+    attackerPower += FORMATION_RANK_BONUS;
+    attackerLog.push({ label: '攻撃陣', value: FORMATION_RANK_BONUS });
+  }
+  if (defenderFormation === 'defense') {
+    defenderPower += FORMATION_RANK_BONUS;
+    defenderLog.push({ label: '防御陣', value: FORMATION_RANK_BONUS });
+  }
+
   // 地形防御(防御側)。狙撃カード使用時は無視される
   const defTerrain = grid[defender.y][defender.x].terrain;
   let terrainDef = attacker.tempSnipe ? 0 : TERRAIN_DEFENSE[defTerrain] || 0;
@@ -72,20 +83,20 @@ export function calcCombat({ attacker, defender, grid, size, squads, originTerra
     ambushUsed = !attacker.ambushOverride;
   }
 
-  // 密集陣形(防御側に縦横隣接する「300人以上」の味方が2隊以上いる場合のみ発動。x1、鼓舞・総攻撃カードで+2/人)
+  // 密集陣形(防御側に縦横隣接する「600人以上」の味方が2隊以上いる場合のみ発動。x1、鼓舞・総攻撃カードで+2/人)
   // 狙撃カード使用時は無視される
   if (!attacker.tempSnipe) {
     const neighbors = orthogonalNeighbors(size, defender.x, defender.y);
     let allyCount = 0;
     for (const n of neighbors) {
       const s = squadAt(squads, n.x, n.y);
-      if (s && s.ownerId === defender.ownerId && s.id !== defender.id && s.count >= 300) allyCount++;
+      if (s && s.ownerId === defender.ownerId && s.id !== defender.id && s.count >= 600) allyCount++;
     }
     if (allyCount >= 2) {
       let densityBonus = allyCount * 1;
       if (defender.tempInspire) densityBonus += allyCount * 2;
       defenderPower += densityBonus;
-      defenderLog.push({ label: `密集陣形(300人以上の隣接${allyCount})${defender.tempInspire ? '+鼓舞' : ''}`, value: densityBonus });
+      defenderLog.push({ label: `密集陣形(600人以上の隣接${allyCount})${defender.tempInspire ? '+鼓舞' : ''}`, value: densityBonus });
     }
   }
 

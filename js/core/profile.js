@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = 'warchess_profile_v1';
 
-const DEFAULT_PROFILE = {
+export const DEFAULT_PROFILE = {
   gems: 300,
   lastLoginDate: null,
   loginStreak: 0,
@@ -31,6 +31,8 @@ const DEFAULT_PROFILE = {
                               // (アプリを再起動しても消えないよう、プロフィールに保存しておく)
   storyRecruitedCharacterIds: [], // 首都タイルでの勝利によって、このキャンペーン中に仲間になった国の君主ID一覧
                                    // (ガチャの武将コレクション unlockedCharacters とは完全に別管理)
+  lastFormation: null, // 直近で選んだ陣形('attack'|'defense'|null。次回のデフォルト選択に使う)
+  devModeUnlocked: false, // 開発者コードを入力済みかどうか(ショップタブの開発者モードパネルの表示制御)
 };
 
 export function loadProfile() {

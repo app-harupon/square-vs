@@ -948,6 +948,55 @@ body {
 
 /* ---------- 出陣メンバー(大将・副将)選択 ---------- */
 .character-select-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+
+.formation-select-row { display: flex; align-items: center; gap: 8px; margin: 4px 0 14px; flex-wrap: wrap; }
+.formation-select-label { font-size: 0.78rem; color: var(--ink-soft); font-weight: 700; }
+.formation-btn {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 2px solid #ddd;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+.formation-btn .hint { font-size: 0.65rem; font-weight: 500; }
+.formation-btn.active { border-color: var(--pastel-blue-dark); background: linear-gradient(135deg, #eaf3ff, #dceaff); }
+
+.dev-code-row { display: flex; gap: 6px; margin-top: 32px; opacity: 0.5; }
+.dev-code-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid #ddd;
+  background: #fff;
+  color: var(--ink);
+}
+.dev-panel { margin-top: 14px; padding: 12px; border-radius: var(--radius-md); border: 1px dashed #c0392b; background: rgba(255,120,110,0.06); }
+.dev-panel h3 { margin: 0 0 4px; font-size: 0.95rem; }
+.dev-panel-section { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.dev-panel-label { font-size: 0.75rem; font-weight: 700; color: var(--ink-soft); display: flex; flex-direction: column; gap: 4px; }
+.dev-panel-row { display: flex; gap: 6px; }
+.dev-panel-row input[type="number"] {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid #ddd;
+}
 .character-card {
   display: flex;
   align-items: center;

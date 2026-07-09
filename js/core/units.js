@@ -12,17 +12,27 @@ export const UNIT_STATS = {
   [UNIT_TYPES.CAVALRY]: { rank: 7, move: 4, range: 1, label: '騎兵', icon: '🐎' },
 };
 
-export const INITIAL_SOLDIERS = 100;
+export const INITIAL_SOLDIERS = 200;
 // 分隊後の各隊、および部隊が行動(移動・攻撃)できる最低人数
-export const MIN_ACTIVE_SOLDIERS = 100;
+export const MIN_ACTIVE_SOLDIERS = 200;
 // 1マス(1部隊)あたりの最大人数
-export const MAX_SQUAD_SIZE = 500;
+export const MAX_SQUAD_SIZE = 1000;
 
-// 総兵力の規模に応じて、大将・副将1部隊あたりの兵数を引き上げる(小規模な戦闘では現状通り100のまま)
+// 総兵力の規模に応じて、大将・副将1部隊あたりの兵数を引き上げる(小規模な戦闘では現状通り200のまま)
 export function generalTroopCountFor(totalTroops) {
-  if (totalTroops > 3000) return 500;
-  if (totalTroops > 1000) return 200;
+  if (totalTroops > 6000) return 1000;
+  if (totalTroops > 2000) return 400;
   return INITIAL_SOLDIERS;
+}
+
+// 陣形の種類と、攻撃側・防御側それぞれに乗るランクボーナス
+export const FORMATIONS = {
+  attack: { id: 'attack', name: '攻撃陣(錐形)', desc: '自軍が攻撃する時、ランク+2' },
+  defense: { id: 'defense', name: '防御陣', desc: '自軍が防御する時、ランク+2' },
+};
+export const FORMATION_RANK_BONUS = 2;
+export function randomFormation() {
+  return Math.random() < 0.5 ? 'attack' : 'defense';
 }
 
 // 三すくみ: 歩兵 > 騎兵 > 弓兵 > 歩兵 (ランク差を埋めるため相性ボーナスは組み合わせごとに異なる)

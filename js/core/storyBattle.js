@@ -1,7 +1,7 @@
 // ストーリーモード(『黎明の大地』)専用のゲーム開始・戦後処理ロジック。
 // core/rules.js の汎用部品を使いつつ、国家データ(story.js)と組み合わせる橋渡し役。
 import { generateTerrain } from './terrain.js';
-import { UNIT_TYPES, initialHand, makeSkillCard, ELITE_CHANCE, INITIAL_SOLDIERS, generalTroopCountFor } from './units.js';
+import { UNIT_TYPES, initialHand, makeSkillCard, ELITE_CHANCE, INITIAL_SOLDIERS, generalTroopCountFor, randomFormation } from './units.js';
 import { generateNationSquadTemplates } from './rules.js';
 import { createSquad } from './squad.js';
 import { PLAYER_NATION, findPlayerCharacter, DEFENSE_BATTLE_RANK_BONUS } from './story.js';
@@ -9,7 +9,7 @@ import { PLAYER_NATION, findPlayerCharacter, DEFENSE_BATTLE_RANK_BONUS } from '.
 // 両軍合わせた兵力規模に応じて盤面サイズを決める(小規模な合戦を無駄に広い盤で戦わせないため)。
 // 盤面は最大15x15までとする(30x30は操作しづらいため廃止)
 function boardSizeFor(combinedTroops) {
-  if (combinedTroops >= 5000) return { boardSize: 15, deployDepth: 2 };
+  if (combinedTroops >= 10000) return { boardSize: 15, deployDepth: 2 };
   return { boardSize: 7, deployDepth: 1 };
 }
 
@@ -17,7 +17,7 @@ export function getPlayerTotalTroops(profile) {
   const reserve = profile?.storyReserve || {};
   const hasReserve = Object.values(reserve).some((v) => v > 0);
   if (!hasReserve) return PLAYER_NATION.totalTroops;
-  return Object.values(reserve).reduce((sum, v) => sum + v, 0) + 100; // +100は将軍自身の分
+  return Object.values(reserve).reduce((sum, v) => sum + v, 0) + 200; // +200は将軍自身の分
 }
 
 function dominantType(ratios) {
@@ -28,10 +28,20 @@ function dominantType(ratios) {
 
 // 合戦の規模(駐留軍の人数)に応じて副将の数を決める。大規模な合戦ほど武将の数が増える
 export function viceGeneralCountFor(tileTroopCount) {
-  if (tileTroopCount >= 4000) return 3;
-  if (tileTroopCount >= 2500) return 2;
-  if (tileTroopCount >= 1200) return 1;
+  if (tileTroopCount >= 8000) return 3;
+  if (tileTroopCount >= 5000) return 2;
+  if (tileTroopCount >= 2400) return 1;
   return 0;
+}
+
+// 国盗りの難易度カーブ: 最初の5戦は自軍とほぼ同数(誤差10%以内)、5戦目以降は徐々に緩めて
+// 誤差30%以内に抑える(strength自体=scoreMultiplier/戦術性向/構成比は一切変更しない、兵数だけを調整する)
+export function balancedTileTroopCount(naturalCount, playerTotalTroops, battlesCompleted) {
+  const t = Math.min(1, (battlesCompleted || 0) / 5);
+  const tolerance = 0.10 + (0.30 - 0.10) * t;
+  const min = playerTotalTroops * (1 - tolerance);
+  const max = playerTotalTroops * (1 + tolerance);
+  return Math.round(Math.min(max, Math.max(min, naturalCount)));
 }
 
 function generatePlayerSquadTemplates(ownerId, profile, generalCharacterId, viceGeneralCharacterIds) {
@@ -110,6 +120,7 @@ export function createStoryGame(nation, tileTroopCount, profile = null, landmark
     isDefenseBattle,
     storyNation: nation,
     landmark, // 'castle'(王城) | 'fortress'(砦) | null。B軍(敵)の陣地に城の装飾を立てる目印
+    formations: { A: options.formation || null, B: randomFormation() },
   };
   return state;
 }

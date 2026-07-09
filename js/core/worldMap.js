@@ -1,10 +1,10 @@
 // ストーリーモードの「世界地図」生成・領有・隣接判定ロジック。
-// 各国の領土マス数は総兵力÷2000(繰り上げ)。1マスあたりおよそ2000人の駐留軍として扱う。
+// 各国の領土マス数は総兵力÷4000(繰り上げ)。1マスあたりおよそ4000人の駐留軍として扱う。
 import { STORY_NATIONS, PLAYER_NATION } from './story.js';
 
 export const MAP_WIDTH = 9;
 export const MAP_HEIGHT = 7;
-const TROOPS_PER_TILE = 2000;
+const TROOPS_PER_TILE = 4000;
 
 export function tileCountForTroops(totalTroops) {
   return Math.max(1, Math.ceil(totalTroops / TROOPS_PER_TILE));
@@ -308,7 +308,7 @@ export function simulateRivalIncursions(map, owners, alliances, nationLookup, bo
       const nation = nationLookup(attackerNation);
       if (!nation) continue;
       // 総兵力が大きい国ほど侵攻してきやすい(あくまで簡易な確率判定)。世界情勢の強化分も加味する
-      const chance = Math.min(0.12, 0.02 + (nation.totalTroops * boostFactor) / 400000);
+      const chance = Math.min(0.12, 0.02 + (nation.totalTroops * boostFactor) / 800000);
       if (Math.random() < chance) {
         owners[tileIdx] = attackerNation;
         capturedTiles.push({ tileIndex: tileIdx, byNation: attackerNation });

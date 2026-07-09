@@ -45,7 +45,7 @@ export const PLAYER_NATION = {
   name: '黎明の国',
   monarch: 'ノア',
   color: '#7fb8ff',
-  totalTroops: 500,
+  totalTroops: 1000,
   composition: { [UNIT_TYPES.INFANTRY]: 1 },
   desc: 'ここから世界をひっくり返す成り上がりが始まる。',
 };
@@ -108,7 +108,7 @@ export const STORY_NATIONS = [
     monarch: 'ジェネス',
     color: '#8b7d6b',
     size: 'M',
-    totalTroops: 3000,
+    totalTroops: 6000,
     composition: composition('even', 'high', 'none'),
     desc: 'プレイヤーが最初にぶつかる強敵。罠やデバフで三すくみの相性を強引にひっくり返してくる。',
     aiTrait: 'trickery',
@@ -120,7 +120,7 @@ export const STORY_NATIONS = [
     monarch: 'ガロウ',
     color: '#d9a441',
     size: 'XL',
-    totalTroops: 30000,
+    totalTroops: 60000,
     composition: composition('high', 'high', 'minimal'),
     desc: '大陸最大の超大国。圧倒的な物量とパワーで防衛陣形を強引にすり潰して突破する。',
     aiTrait: 'brute_force',
@@ -132,7 +132,7 @@ export const STORY_NATIONS = [
     monarch: 'ホムラ',
     color: '#e0c589',
     size: 'L',
-    totalTroops: 12000,
+    totalTroops: 24000,
     composition: composition('low', 'minimal', 'high'),
     desc: '美と格式を重んじる国家。乱れのない陣形からの弓の斉射で敵の防御力を数ターン低下させる。',
     aiTrait: 'volley_debuff',
@@ -144,7 +144,7 @@ export const STORY_NATIONS = [
     monarch: 'ドウザン',
     color: '#a79a8a',
     size: 'M',
-    totalTroops: 20000,
+    totalTroops: 40000,
     composition: composition('dominant', 'minimal', 'low'),
     desc: '重装甲と大盾で固めた歩兵の要塞。通常攻撃をほぼシャットアウトし、反撃でジワジワ削る耐久型。',
     aiTrait: 'fortress',
@@ -156,7 +156,7 @@ export const STORY_NATIONS = [
     monarch: 'ハヤテ',
     color: '#5b6b5b',
     size: 'L',
-    totalTroops: 4000,
+    totalTroops: 8000,
     composition: composition('low', 'high', 'minimal'),
     desc: '正面衝突を避け、しげみに潜んで奇襲を仕掛ける。他国が疲弊した隙を突くハイエナ戦術。',
     aiTrait: 'ambush',
@@ -168,7 +168,7 @@ export const STORY_NATIONS = [
     monarch: 'レン',
     color: '#4f6fae',
     size: 'M',
-    totalTroops: 6000,
+    totalTroops: 12000,
     composition: composition('low', 'dominant', 'minimal'),
     desc: '孤立したユニットや手薄な防衛線を狙い澄まし、錐で穴をあけるように一撃で貫通してくる。',
     aiTrait: 'spearhead',
@@ -180,7 +180,7 @@ export const STORY_NATIONS = [
     monarch: 'シノノメ',
     color: '#5a4f6e',
     size: 'M',
-    totalTroops: 8000,
+    totalTroops: 16000,
     composition: composition('even', 'even', 'even'),
     desc: '底知れない知略で、あらゆる奇策と罠を繰り出す。盤面全体をチェスのようにコントロールする。',
     aiTrait: 'adaptive',
@@ -192,7 +192,7 @@ export const STORY_NATIONS = [
     monarch: 'エマ',
     color: '#d64545',
     size: 'L',
-    totalTroops: 5000,
+    totalTroops: 10000,
     composition: composition('none', 'dominant', 'none'),
     desc: '防衛用の歩兵も弓兵も一切排除。1ターン目から敵の本陣だけをピンポイントで狙う超短期決戦型。',
     aiTrait: 'rush_general',
@@ -204,7 +204,7 @@ export const STORY_NATIONS = [
     monarch: 'ギンジ',
     color: '#3d8fae',
     size: 'S',
-    totalTroops: 1500,
+    totalTroops: 3000,
     composition: composition('low', 'low', 'low'),
     desc: '正面衝突の兵法を使わず、何をしてくるか読めない怪しげな戦術で手数の少なさを補う。',
     aiTrait: 'phantom',
@@ -222,7 +222,7 @@ export function findNation(nationId) {
 // プロローグ(新規キャンペーン開始時、難易度選択の直後に1回だけ表示)
 export const PROLOGUE_TEXT = `かつて黎明の国は、この大陸で名の知れた大国だった。
 
-だが数十年前、覇牙の国ガロウの侵攻によって、黎明の版図は無残に切り取られ、多くの民と土地を失った。以来、黎明は総兵力500——大陸に散らばる国々の中でも、最も小さく、最も弱い国として、細々と命脈を保ってきた。
+だが数十年前、覇牙の国ガロウの侵攻によって、黎明の版図は無残に切り取られ、多くの民と土地を失った。以来、黎明は総兵力1000——大陸に散らばる国々の中でも、最も小さく、最も弱い国として、細々と命脈を保ってきた。
 
 主将ノアは、その黎明の若き主将。奪われた土地を、奪われた誇りを、いつか必ず取り戻す——その一心で、リオ、ガイ、セラという僅かな仲間と共に、大陸統一という無謀な旗を掲げる。
 
@@ -322,7 +322,7 @@ export function dialogueSetFor(nationId, difficultyId) {
 
 // ハード/ヘル限定: 廃鉄の国が力を求めすぎて超大国化する特別スケーリング。
 // 通常の難易度倍率(scoreMultiplier)とは別枠。数値は暫定値であり、後日調整する前提のプレースホルダー。
-const HAITETSU_WALL_OVERRIDE = { totalTroops: 22000, aiTrait: 'fortress' };
+const HAITETSU_WALL_OVERRIDE = { totalTroops: 44000, aiTrait: 'fortress' };
 
 export function getNationForDifficulty(nationId, difficultyId) {
   const nation = findNation(nationId);

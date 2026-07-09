@@ -3,7 +3,7 @@ import { canSplit, canMerge } from './core/squad.js';
 import { isAdjacent } from './core/board.js';
 import { TERRAIN } from './core/terrain.js';
 import { MIN_ACTIVE_SOLDIERS, MAX_SQUAD_SIZE, UNIT_TYPES, UNIT_STATS } from './core/units.js';
-import { loadProfile, saveProfile, checkLoginBonus, spendGems } from './core/profile.js';
+import { loadProfile, saveProfile, checkLoginBonus, spendGems, DEFAULT_PROFILE } from './core/profile.js';
 import {
   createGame,
   emptyDeployTiles,
@@ -37,7 +37,7 @@ import {
   RARITY_LABEL, RARITY_RANK_BONUS, characterDropRate, pickWeightedCharacterCard,
   getActivePickupBanner, pickWeightedCharacterCardForBanner,
 } from './core/characters.js';
-import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops } from './core/storyBattle.js';
+import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops, balancedTileTroopCount } from './core/storyBattle.js';
 import {
   generateWorldMap,
   getAttackableTiles,
@@ -120,6 +120,20 @@ const confirmYesBtn = $('confirm-yes-btn');
 const confirmNoBtn = $('confirm-no-btn');
 const gemCountEl = $('gem-count');
 const shopGemCountEl = $('shop-gem-count');
+const devCodeInput = $('dev-code-input');
+const devCodeSubmitBtn = $('dev-code-submit-btn');
+const devPanel = $('dev-panel');
+const devResetStoryBtn = $('dev-reset-story-btn');
+const devResetGachaBtn = $('dev-reset-gacha-btn');
+const devResetCpuBtn = $('dev-reset-cpu-btn');
+const devResetMiscBtn = $('dev-reset-misc-btn');
+const devResetAllBtn = $('dev-reset-all-btn');
+const devGemsInput = $('dev-gems-input');
+const devGemsApplyBtn = $('dev-gems-apply-btn');
+const devReserveInfantryInput = $('dev-reserve-infantry-input');
+const devReserveArcherInput = $('dev-reserve-archer-input');
+const devReserveCavalryInput = $('dev-reserve-cavalry-input');
+const devReserveApplyBtn = $('dev-reserve-apply-btn');
 const homePager = $('home-pager');
 const homeTabBtns = [...document.querySelectorAll('.home-tab-btn')];
 const storyCardsList = $('story-cards-list');
@@ -201,6 +215,8 @@ const characterSelectList = $('character-select-list');
 const charSelectViceRemaining = $('char-select-vice-remaining');
 const characterSelectConfirmBtn = $('character-select-confirm-btn');
 const characterSelectCancelBtn = $('character-select-cancel-btn');
+const formationAttackBtn = $('formation-attack-btn');
+const formationDefenseBtn = $('formation-defense-btn');
 const storyTileAttackBtn = $('story-tile-attack-btn');
 const storyTileAllyBtn = $('story-tile-ally-btn');
 const storyTileCancelBtn = $('story-tile-cancel-btn');
@@ -212,6 +228,8 @@ const capitalDefenseConfirmBtn = $('capital-defense-confirm-btn');
 const CHARACTER_GACHA_COST = 300;
 const CHARACTER_GACHA_TEN_COST = 2500;
 const CHARACTER_GACHA_TEN_FIRST_COST = 500;
+
+const DEV_CODE = 'test0826'; // 開発者モード解除コード(テストプレイ用の裏設定)
 
 let profile = loadProfile();
 
@@ -351,11 +369,11 @@ function handleModeCardClick(modeId) {
     const unlockedRoster = CHARACTER_CARDS.filter((c) => profile.unlockedCharacters.includes(c.id));
     const mode = getMode(modeId);
     openCharacterSelect(
-      (generalId, viceIds) => {
+      (generalId, viceIds, formation) => {
         isOnlineGame = false;
         isHost = false;
         myId = 'A';
-        game = createGame(mode, profile, generalId, viceIds);
+        game = createGame(mode, profile, generalId, viceIds, formation);
         enterGameScreen();
       },
       {
@@ -531,15 +549,16 @@ function startStoryBattle(tileIndex) {
   if (!nation) return;
   const total = totalTileCount(map, nationId);
   const difficulty = findDifficulty(profile.storyDifficulty);
-  const tileTroopCount = Math.max(500, Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier));
+  const naturalCount = Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier);
+  const tileTroopCount = Math.max(1000, balancedTileTroopCount(naturalCount, getPlayerTotalTroops(profile), profile.storyBattlesCompleted));
   const landmark = isCapitalTile(map, tileIndex) ? 'castle' : isFortressTile(map, tileIndex) ? 'fortress' : null;
   const isCapital = isCapitalTile(map, tileIndex);
   const roster = storyCharacterRoster();
-  openCharacterSelect((generalId, viceIds) => {
+  openCharacterSelect((generalId, viceIds, formation) => {
     isOnlineGame = false;
     isHost = false;
     myId = 'A';
-    game = createStoryGame(nation, tileTroopCount, profile, landmark, generalId, viceIds);
+    game = createStoryGame(nation, tileTroopCount, profile, landmark, generalId, viceIds, { formation });
     game.storyTileIndex = tileIndex;
     enterGameScreen();
     if (isCapital) {
@@ -558,7 +577,8 @@ function startCapitalDefenseBattle(tileIndex, attackerNationId) {
   if (!nation) return;
   const total = totalTileCount(map, nation.id) || 1;
   const difficulty = findDifficulty(profile.storyDifficulty);
-  const tileTroopCount = Math.max(500, Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier));
+  const naturalCount = Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier);
+  const tileTroopCount = Math.max(1000, balancedTileTroopCount(naturalCount, getPlayerTotalTroops(profile), profile.storyBattlesCompleted));
   const isNativeCapital = map.tiles[tileIndex] === PLAYER_NATION.id;
   const roster = storyCharacterRoster();
 
@@ -576,21 +596,18 @@ function startCapitalDefenseBattle(tileIndex, attackerNationId) {
   }
 
   openCharacterSelect(
-    (generalId, viceIds) => {
+    (generalId, viceIds, formation) => {
       isOnlineGame = false;
       isHost = false;
       myId = 'A';
-      game = createStoryGame(nation, tileTroopCount, profile, 'castle', generalId, viceIds, { isDefenseBattle: true });
+      game = createStoryGame(nation, tileTroopCount, profile, 'castle', generalId, viceIds, { isDefenseBattle: true, formation });
       game.defenseTileIndex = tileIndex;
       game.defenseAttackerNationId = attackerNationId;
       game.defenseIsNativeCapital = isNativeCapital;
       game.defenseGeneralId = generalId;
       game.defenseViceIds = viceIds;
       enterGameScreen();
-      const dialogueSet = dialogueSetFor(attackerNationId, profile.storyDifficulty);
-      game.storyDialogueSet = dialogueSet;
-      game.storyCombatEventCount = 0;
-      showNationQuote(nation, dialogueSet?.battleStart);
+      // 防衛戦(自分の王都・拠点が攻められた側)ではセリフを出さない。敵の首都を攻める側の戦闘のみで表示する
     },
     { roster, persistKeys: { general: 'storyLastGeneral', vice: 'storyLastViceGenerals' }, allowCancel: false }
   );
@@ -624,10 +641,26 @@ let charSelectViceLimit = 0;
 let charSelectRoster = PLAYER_CHARACTERS;
 let charSelectPersistKeys = { general: 'storyLastGeneral', vice: 'storyLastViceGenerals' };
 let charSelectAllowCancel = true;
+let charSelectFormation = 'attack';
+
+function renderFormationSelect() {
+  formationAttackBtn.classList.toggle('active', charSelectFormation === 'attack');
+  formationDefenseBtn.classList.toggle('active', charSelectFormation === 'defense');
+}
+formationAttackBtn.addEventListener('click', () => {
+  charSelectFormation = 'attack';
+  renderFormationSelect();
+});
+formationDefenseBtn.addEventListener('click', () => {
+  charSelectFormation = 'defense';
+  renderFormationSelect();
+});
 
 function openCharacterSelect(onConfirm, opts = {}) {
   const roster = opts.roster || PLAYER_CHARACTERS;
   const persistKeys = opts.persistKeys || { general: 'storyLastGeneral', vice: 'storyLastViceGenerals' };
+  charSelectFormation = profile.lastFormation === 'defense' ? 'defense' : 'attack';
+  renderFormationSelect();
   charSelectOnConfirm = onConfirm;
   charSelectRoster = roster;
   charSelectPersistKeys = persistKeys;
@@ -687,11 +720,12 @@ function renderCharacterSelect() {
 characterSelectConfirmBtn.addEventListener('click', () => {
   profile[charSelectPersistKeys.general] = charSelectGeneral;
   profile[charSelectPersistKeys.vice] = [...charSelectVice];
+  profile.lastFormation = charSelectFormation;
   saveProfile(profile);
   characterSelectModal.hidden = true;
   const cb = charSelectOnConfirm;
   charSelectOnConfirm = null;
-  cb?.(charSelectGeneral, [...charSelectVice]);
+  cb?.(charSelectGeneral, [...charSelectVice], charSelectFormation);
 });
 characterSelectCancelBtn.addEventListener('click', () => {
   characterSelectModal.hidden = true;
@@ -1715,7 +1749,7 @@ function handleDeployTap(x, y) {
   tryPlaceFromQueue(selectedDeployIndex, x, y);
 }
 
-// 500人上限の中で「何人置くか」を選べるようにする
+// 1000人上限の中で「何人置くか」を選べるようにする
 let pendingDeployPlacement = null; // { templateIndex, x, y }
 const deployAmountModal = $('deploy-amount-modal');
 const deployAmountSlider = $('deploy-amount-slider');
@@ -1788,7 +1822,7 @@ splitBtn.addEventListener('click', () => {
     splitSlider.min = MIN_ACTIVE_SOLDIERS;
     splitSlider.max = max;
     splitSlider.step = MIN_ACTIVE_SOLDIERS;
-    splitSlider.value = Math.min(max, Math.round(squad.count / 200) * MIN_ACTIVE_SOLDIERS || MIN_ACTIVE_SOLDIERS);
+    splitSlider.value = Math.min(max, Math.round(squad.count / 400) * MIN_ACTIVE_SOLDIERS || MIN_ACTIVE_SOLDIERS);
   } else {
     splitSlider.min = 1;
     splitSlider.max = squad.count - 1;
@@ -2031,17 +2065,18 @@ function showResult() {
 // 合戦の勝敗を国盗り合戦の世界地図に反映する(勝敗を問わず、他国情勢の背景シミュレーションは進行する)
 // 首都級の戦闘に勝った時、「敗北時」セリフ + 仲間になれる国なら「仲間になる時」セリフも連結し、
 // profile.storyRecruitedCharacterIds に登録する(ガチャの武将コレクションとは完全に別管理)
-function appendNationDefeatDialogue(nation, difficultyId, prof) {
+function appendNationDefeatDialogue(nation, difficultyId, prof, includeQuotes = true) {
   if (!nation) return '';
   const dialogueSet = dialogueSetFor(nation.id, difficultyId);
-  if (!dialogueSet) return '';
-  let text = dialogueSet.defeat ? ` ${nation.monarch}「${dialogueSet.defeat}」` : '';
+  let text = includeQuotes && dialogueSet?.defeat ? ` ${nation.monarch}「${dialogueSet.defeat}」` : '';
   if (isRecruitable(nation.id, difficultyId)) {
     prof.storyRecruitedCharacterIds = prof.storyRecruitedCharacterIds || [];
     if (!prof.storyRecruitedCharacterIds.includes(nation.id)) {
       prof.storyRecruitedCharacterIds.push(nation.id);
     }
-    if (dialogueSet.join) text += ` ${nation.monarch}「${dialogueSet.join}」🤝${nation.monarch}が仲間になりました!`;
+    text += includeQuotes && dialogueSet?.join
+      ? ` ${nation.monarch}「${dialogueSet.join}」🤝${nation.monarch}が仲間になりました!`
+      : ` 🤝${nation.monarch}が仲間になりました!`;
   }
   return text;
 }
@@ -2145,7 +2180,7 @@ function resolveCapitalDefenseOutcome(finishedGame, won) {
 
   if (won) {
     let text = ` ${attackerName}の猛攻を凌ぎきり、拠点の防衛に成功しました!`;
-    text += appendNationDefeatDialogue(findNation(attackerNationId), profile.storyDifficulty, profile);
+    text += appendNationDefeatDialogue(findNation(attackerNationId), profile.storyDifficulty, profile, false);
     saveProfile(profile);
     return text;
   }
@@ -2760,6 +2795,88 @@ document.addEventListener('pointerdown', (e) => {
     playSfx('tap');
   }
 });
+
+// ---------- 開発者モード(テストプレイ用の裏設定。実際の課金・通信には一切影響しない) ----------
+function cloneDefault(key) {
+  const v = DEFAULT_PROFILE[key];
+  if (Array.isArray(v)) return [...v];
+  if (v && typeof v === 'object') return { ...v };
+  return v;
+}
+
+devCodeSubmitBtn.addEventListener('click', () => {
+  if (devCodeInput.value !== DEV_CODE) {
+    devCodeInput.value = '';
+    return;
+  }
+  devCodeInput.value = '';
+  profile.devModeUnlocked = true;
+  saveProfile(profile);
+  devPanel.hidden = false;
+});
+
+devResetStoryBtn.addEventListener('click', () => {
+  showConfirm('[開発者モード] ストーリーキャンペーンをリセットしますか?', () => {
+    resetStoryCampaign(profile);
+    saveProfile(profile);
+  });
+});
+devResetGachaBtn.addEventListener('click', () => {
+  showConfirm('[開発者モード] ガチャ・武将コレクションをリセットしますか?', () => {
+    profile.characterCardCounts = cloneDefault('characterCardCounts');
+    profile.unlockedCharacters = cloneDefault('unlockedCharacters');
+    profile.characterGacha10Used = cloneDefault('characterGacha10Used');
+    saveProfile(profile);
+    refreshShopUI();
+  });
+});
+devResetCpuBtn.addEventListener('click', () => {
+  showConfirm('[開発者モード] 通常CPU対戦設定をリセットしますか?', () => {
+    profile.useCardsInCpuBattle = cloneDefault('useCardsInCpuBattle');
+    profile.cpuLastGeneral = cloneDefault('cpuLastGeneral');
+    profile.cpuLastViceGenerals = cloneDefault('cpuLastViceGenerals');
+    saveProfile(profile);
+  });
+});
+devResetMiscBtn.addEventListener('click', () => {
+  showConfirm('[開発者モード] チュートリアル/ログインボーナスをリセットしますか?', () => {
+    profile.tutorialSeen = cloneDefault('tutorialSeen');
+    profile.lastLoginDate = cloneDefault('lastLoginDate');
+    profile.loginStreak = cloneDefault('loginStreak');
+    saveProfile(profile);
+  });
+});
+devResetAllBtn.addEventListener('click', () => {
+  showConfirm('[開発者モード] 全データを完全リセットしますか?(開発者モードの解除状態のみ維持されます)', () => {
+    Object.keys(DEFAULT_PROFILE).forEach((key) => {
+      if (key === 'devModeUnlocked') return;
+      profile[key] = cloneDefault(key);
+    });
+    saveProfile(profile);
+    updateGemDisplay();
+    refreshShopUI();
+  });
+});
+
+devGemsApplyBtn.addEventListener('click', () => {
+  const value = Math.max(0, Math.round(Number(devGemsInput.value)) || 0);
+  profile.gems = value;
+  saveProfile(profile);
+  updateGemDisplay();
+});
+
+devReserveApplyBtn.addEventListener('click', () => {
+  const infantry = Math.max(0, Math.round(Number(devReserveInfantryInput.value)) || 0);
+  const archer = Math.max(0, Math.round(Number(devReserveArcherInput.value)) || 0);
+  const cavalry = Math.max(0, Math.round(Number(devReserveCavalryInput.value)) || 0);
+  profile.storyReserve = { infantry, archer, cavalry };
+  saveProfile(profile);
+  if (profile.storyMap) {
+    storyReserveEl.textContent = `予備兵力: 歩兵${infantry} / 弓兵${archer} / 騎兵${cavalry}`;
+  }
+});
+
+if (profile.devModeUnlocked) devPanel.hidden = false;
 
 // ---------- 初期化 ----------
 buildMenu();

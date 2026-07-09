@@ -9,6 +9,7 @@ import {
   GENERAL_UPGRADE_BONUS,
   ELITE_CHANCE,
   generalTroopCountFor,
+  randomFormation,
 } from './units.js';
 import { createSquad, canSplit, canMerge } from './squad.js';
 import {
@@ -57,7 +58,7 @@ export function generateSquadTemplates(mode, ownerId, profile = null, generalCha
   }
 
   // 一般部隊はランダムな兵種を振り分けた後、兵種ごとに合算した「総数」を1つの部隊として表示する
-  // (100人ずつバラバラに配置するのではなく、まとまった総数から配置していく。1マスの上限500人は
+  // (200人ずつバラバラに配置するのではなく、まとまった総数から配置していく。1マスの上限1000人は
   //  配置時にplaceSquad側で適用する)
   const counts = { [UNIT_TYPES.INFANTRY]: 0, [UNIT_TYPES.ARCHER]: 0, [UNIT_TYPES.CAVALRY]: 0 };
   for (let i = 1; i < mode.squadCount; i++) {
@@ -110,7 +111,8 @@ export function generateNationSquadTemplates(ownerId, totalTroops, compositionRa
 }
 
 // generalCharacterId/viceGeneralCharacterIds: 通常CPU対戦で「カードあり」を選んだ時の武将カード指定(未指定なら従来通りランダム編成)
-export function createGame(mode, profile = null, generalCharacterId = null, viceGeneralCharacterIds = []) {
+// formation: プレイヤー(A)が選んだ陣形('attack'|'defense'|null)。CPU(B)はランダムに陣形を選ぶ
+export function createGame(mode, profile = null, generalCharacterId = null, viceGeneralCharacterIds = [], formation = null) {
   const grid = generateTerrain(mode.boardSize, mode.deployDepth);
   const generalChar = generalCharacterId ? findCharacterCard(generalCharacterId) : null;
   const playerHand = initialHand(profile?.unlockedCards);
@@ -138,6 +140,7 @@ export function createGame(mode, profile = null, generalCharacterId = null, vice
     winner: null,
     log: [],
     lastCombat: null,
+    formations: { A: formation, B: randomFormation() },
   };
   return state;
 }
@@ -171,7 +174,7 @@ export function emptyDeployTiles(state, playerId) {
   return tiles;
 }
 
-// amount省略時は上限(500人)まで自動で切り出す。amount指定時はその人数だけ配置する
+// amount省略時は上限(1000人)まで自動で切り出す。amount指定時はその人数だけ配置する
 export function placeSquad(state, playerId, templateIndex, x, y, amount = null) {
   const queue = state.deployQueue[playerId];
   const template = queue[templateIndex];
@@ -294,6 +297,8 @@ export function meleeAttack(state, squad, targetSquad, fromTile) {
     squads: state.squads,
     originTerrain,
     isRanged: false,
+    attackerFormation: state.formations?.[squad.ownerId],
+    defenderFormation: state.formations?.[targetSquad.ownerId],
   });
   result = applyIronwall(result, targetSquad);
   if (result.ambushUsed) squad.usedAmbush = true;
@@ -336,6 +341,8 @@ export function rangedAttack(state, squad, targetSquad) {
     squads: state.squads,
     originTerrain,
     isRanged: true,
+    attackerFormation: state.formations?.[squad.ownerId],
+    defenderFormation: state.formations?.[targetSquad.ownerId],
   });
   result = applyIronwall(result, targetSquad);
   squad.fatigue += 1;

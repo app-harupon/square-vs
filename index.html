@@ -152,6 +152,38 @@
           <h2>🛒 ショップ</h2>
           <div class="gem-bar"><span id="shop-gem-count">💎 0</span></div>
           <p class="hint">今後、追加コンテンツが登場予定です。武将カードは「🎯 ガチャ」タブから手に入れられます。</p>
+
+          <div class="dev-code-row">
+            <input type="text" id="dev-code-input" class="dev-code-input" placeholder="開発者コード" autocomplete="off" />
+            <button id="dev-code-submit-btn" class="btn btn-ghost btn-small">🔧</button>
+          </div>
+          <div id="dev-panel" class="dev-panel" hidden>
+            <h3>🔧 開発者モード</h3>
+            <p class="hint">テストプレイ用の裏設定です。プレイ体験に影響するため通常は使いません。</p>
+            <div class="dev-panel-section">
+              <button id="dev-reset-story-btn" class="btn btn-danger-ghost">ストーリーキャンペーンをリセット</button>
+              <button id="dev-reset-gacha-btn" class="btn btn-danger-ghost">ガチャ・武将コレクションをリセット</button>
+              <button id="dev-reset-cpu-btn" class="btn btn-danger-ghost">通常CPU対戦設定をリセット</button>
+              <button id="dev-reset-misc-btn" class="btn btn-danger-ghost">チュートリアル/ログインボーナスをリセット</button>
+              <button id="dev-reset-all-btn" class="btn btn-danger-ghost">全データを完全リセット</button>
+            </div>
+            <div class="dev-panel-section">
+              <label class="dev-panel-label">ジェムを設定
+                <div class="dev-panel-row">
+                  <input type="number" id="dev-gems-input" min="0" />
+                  <button id="dev-gems-apply-btn" class="btn btn-secondary btn-small">適用</button>
+                </div>
+              </label>
+              <label class="dev-panel-label">予備兵力(歩兵/弓兵/騎兵)を設定
+                <div class="dev-panel-row">
+                  <input type="number" id="dev-reserve-infantry-input" min="0" placeholder="歩兵" />
+                  <input type="number" id="dev-reserve-archer-input" min="0" placeholder="弓兵" />
+                  <input type="number" id="dev-reserve-cavalry-input" min="0" placeholder="騎兵" />
+                  <button id="dev-reserve-apply-btn" class="btn btn-secondary btn-small">適用</button>
+                </div>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -316,10 +348,10 @@
   <div id="deploy-amount-modal" class="modal-overlay" hidden>
     <div class="modal-card">
       <h2>配置する人数</h2>
-      <p class="hint">このマスに配置する人数を100人単位で選んでください(残りは配置待ちに残ります)</p>
+      <p class="hint">このマスに配置する人数を200人単位で選んでください(残りは配置待ちに残ります)</p>
       <div class="split-row">
-        <input id="deploy-amount-slider" type="range" min="100" max="500" step="100" value="500" />
-        <span id="deploy-amount-label">500人</span>
+        <input id="deploy-amount-slider" type="range" min="200" max="1000" step="200" value="1000" />
+        <span id="deploy-amount-label">1000人</span>
       </div>
       <div class="panel-actions">
         <button id="deploy-amount-cancel-btn" class="btn btn-ghost">キャンセル</button>
@@ -494,6 +526,11 @@
       <h2>⚔️ 出陣メンバーを選ぶ</h2>
       <p class="hint">大将を1人選んでください。副将はあと<span id="char-select-vice-remaining">0</span>人まで選べます。</p>
       <div id="character-select-list" class="character-select-list"></div>
+      <div class="formation-select-row">
+        <span class="formation-select-label">陣形</span>
+        <button type="button" id="formation-attack-btn" class="formation-btn" data-formation="attack">🔺 攻撃陣<span class="hint">攻撃時ランク+2</span></button>
+        <button type="button" id="formation-defense-btn" class="formation-btn" data-formation="defense">🛡️ 防御陣<span class="hint">防御時ランク+2</span></button>
+      </div>
       <div class="panel-actions">
         <button id="character-select-confirm-btn" class="btn btn-primary">出陣!</button>
         <button id="character-select-cancel-btn" class="btn btn-ghost">やめる</button>

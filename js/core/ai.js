@@ -27,6 +27,8 @@ function simulateCombat(state, attacker, defender, fromX, fromY, isRanged) {
     squads: state.squads,
     originTerrain,
     isRanged,
+    attackerFormation: state.formations?.[attacker.ownerId],
+    defenderFormation: state.formations?.[defender.ownerId],
   });
   attacker.x = origX;
   attacker.y = origY;
@@ -41,7 +43,7 @@ function scoreAttack(state, result, defender, trait) {
   let score = 0;
   if (trait === 'brute_force') attackerLossWeight = 6; // 損害を厭わず物量で押し切る
   else if (trait === 'fortress') attackerLossWeight = 20; // 無理攻めせず守りを固める
-  const attackerLossFrac = result.attackerCasualties / 100;
+  const attackerLossFrac = result.attackerCasualties / 200;
   score += defenderLossFrac * 10 - attackerLossFrac * attackerLossWeight;
   if (defender.isGeneral) score += 8;
   else if (defender.isViceGeneral) score += 4;
@@ -53,7 +55,7 @@ function scoreAttack(state, result, defender, trait) {
     const nearbyAllies = state.squads.filter(
       (s) => s.ownerId === defender.ownerId && s.alive && s.id !== defender.id && manhattan(s, defender) <= 2
     ).length;
-    if (defender.count <= 100 || nearbyAllies <= 1) score += 12; // 手薄・孤立した相手を狙い澄ます
+    if (defender.count <= 200 || nearbyAllies <= 1) score += 12; // 手薄・孤立した相手を狙い澄ます
   }
   if (trait === 'trickery' || trait === 'adaptive') score += 2; // やや積極的に仕掛ける
   if (trait === 'phantom') score += (Math.random() - 0.5) * 8; // 何をしてくるか読めない不規則さ
