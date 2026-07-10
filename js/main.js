@@ -120,6 +120,9 @@ const confirmYesBtn = $('confirm-yes-btn');
 const confirmNoBtn = $('confirm-no-btn');
 const gemCountEl = $('gem-count');
 const shopGemCountEl = $('shop-gem-count');
+const homeStatStreakEl = $('home-stat-streak');
+const homeStatCollectionEl = $('home-stat-collection');
+const homeStatStoryEl = $('home-stat-story');
 const devCodeInput = $('dev-code-input');
 const devCodeSubmitBtn = $('dev-code-submit-btn');
 const devPanel = $('dev-panel');
@@ -2276,6 +2279,20 @@ tutorialBtn.addEventListener('click', () => openTutorial());
 function updateGemDisplay() {
   gemCountEl.textContent = `💎 ${profile.gems}`;
   shopGemCountEl.textContent = `💎 ${profile.gems}`;
+  updateHomeStatsStrip();
+}
+
+// ホーム画面(バトルタブ)冒頭の簡易ステータス帯(ログイン継続・図鑑・ストーリー進行度)を更新する
+function updateHomeStatsStrip() {
+  homeStatStreakEl.textContent = profile.loginStreak > 0 ? `${profile.loginStreak}日連続` : '-';
+  homeStatCollectionEl.textContent = `${profile.unlockedCharacters.length}/${CHARACTER_CARDS.length}`;
+  if (profile.storyDifficulty) {
+    const difficulty = findDifficulty(profile.storyDifficulty);
+    const recruited = profile.storyRecruitedCharacterIds?.length || 0;
+    homeStatStoryEl.textContent = `${difficulty.name} 仲間${recruited}人`;
+  } else {
+    homeStatStoryEl.textContent = '未プレイ';
+  }
 }
 
 // 「能力値順」ソート用の派生値(兵種の基礎ランク + レアリティのランクボーナス)

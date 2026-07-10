@@ -45,6 +45,22 @@
         <div class="home-page-inner">
           <p class="tagline">兵を分け、束ね、地を制す。</p>
 
+          <!-- プレイヤーの現在の進み具合を一目で見せる小さなステータス帯 -->
+          <div id="home-stats-strip" class="home-stats-strip">
+            <div class="home-stat-chip">
+              <span class="home-stat-icon">🔥</span>
+              <span id="home-stat-streak" class="home-stat-value">-</span>
+            </div>
+            <div class="home-stat-chip">
+              <span class="home-stat-icon">🎴</span>
+              <span id="home-stat-collection" class="home-stat-value">-</span>
+            </div>
+            <div class="home-stat-chip">
+              <span class="home-stat-icon">📖</span>
+              <span id="home-stat-story" class="home-stat-value">-</span>
+            </div>
+          </div>
+
           <!-- 最初の3択(CPU対戦・オンライン対戦・ストーリーモード) -->
           <div id="top-mode-list" class="top-mode-list">
             <button id="top-cpu-btn" class="top-mode-card cpu">

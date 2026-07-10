@@ -245,11 +245,25 @@ export class Renderer2D {
   }
 
   _drawTile(ctx, cx, cy, terrain, checker, gx, gy) {
+    const t = this.tileSize;
     const base = TERRAIN_COLORS[terrain] || '#cccccc';
     const color = checker ? shade(base, 1.08) : shade(base, 0.92);
     this._tileRectPath(ctx, cx, cy);
     ctx.fillStyle = color;
     ctx.fill();
+
+    // 山・丘は左上を明るく右下を暗くするベベルを重ね、平面グリッドのまま軽い高低差を出す
+    const bumpStrength = terrain === TERRAIN.MOUNTAIN ? 0.32 : terrain === TERRAIN.HILL ? 0.16 : 0;
+    if (bumpStrength > 0) {
+      const grad = ctx.createLinearGradient(cx - t / 2, cy - t / 2, cx + t / 2, cy + t / 2);
+      grad.addColorStop(0, `rgba(255,255,255,${bumpStrength})`);
+      grad.addColorStop(0.55, 'rgba(255,255,255,0)');
+      grad.addColorStop(1, `rgba(20,15,10,${bumpStrength * 0.85})`);
+      this._tileRectPath(ctx, cx, cy);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 1;
     ctx.stroke();
@@ -272,6 +286,10 @@ export class Renderer2D {
         this._drawTree(ctx, cx + dx, cy + dy, t);
       }
     } else if (terrain === TERRAIN.MOUNTAIN) {
+      ctx.fillStyle = 'rgba(20,15,25,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(cx + t * 0.05, cy + t * 0.3, t * 0.24, t * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = 'rgba(70,60,90,0.4)';
       ctx.beginPath();
       ctx.moveTo(cx, cy - t * 0.32);
@@ -313,6 +331,10 @@ export class Renderer2D {
   }
 
   _drawTree(ctx, cx, cy, t) {
+    ctx.fillStyle = 'rgba(20,30,10,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(cx + t * 0.03, cy + t * 0.12, t * 0.14, t * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.strokeStyle = '#8a5a3a';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -421,6 +443,10 @@ export class Renderer2D {
       const unitW = unitH * (ICON_W / ICON_H);
       const feetY = pos.y + this.tileSize * 0.42;
       ctx.globalAlpha = squad.actedThisTurn ? 0.55 : 1;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(pos.x, feetY - unitH * 0.04, this.tileSize * 0.26, this.tileSize * 0.09, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.drawImage(img, pos.x - unitW / 2, feetY - unitH, unitW, unitH);
       ctx.globalAlpha = 1;
       this._drawCountBadge(ctx, pos.x, feetY - unitH - this.tileSize * 0.06, concealed ? '???' : String(squad.count));
