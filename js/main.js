@@ -140,6 +140,7 @@ const devReserveApplyBtn = $('dev-reserve-apply-btn');
 const homePager = $('home-pager');
 const homeTabBtns = [...document.querySelectorAll('.home-tab-btn')];
 const storyCardsList = $('story-cards-list');
+const lineupEditorList = $('lineup-editor-list');
 const characterGachaBtn = $('character-gacha-btn');
 const characterGacha10Btn = $('character-gacha10-btn');
 const characterGachaFirstHint = $('character-gacha-first-hint');
@@ -163,6 +164,14 @@ const collectionFilterNation = $('collection-filter-nation');
 const collectionCountSummary = $('collection-count-summary');
 const collectionList = $('collection-list');
 const collectionFeaturedList = $('collection-featured-list');
+const characterDetailModal = $('character-detail-modal');
+const characterDetailPortrait = $('character-detail-portrait');
+const characterDetailName = $('character-detail-name');
+const characterDetailTitle = $('character-detail-title');
+const characterDetailStars = $('character-detail-stars');
+const characterDetailStatus = $('character-detail-status');
+const characterDetailRate = $('character-detail-rate');
+const characterDetailCloseBtn = $('character-detail-close-btn');
 const gachaPullModal = $('gacha-pull-modal');
 const gachaPullProgress = $('gacha-pull-progress');
 const gachaCapsule = $('gacha-capsule');
@@ -688,7 +697,7 @@ function renderCharacterSelect() {
     const isVice = charSelectVice.has(char.id);
     const card = document.createElement('div');
     card.className = 'character-card' + (isGeneral || isVice ? ' selected' : '');
-    const rarityPrefix = char.rarity ? `${RARITY_LABEL[char.rarity]} ` : '';
+    const rarityPrefix = char.rarity ? `<span style="color:${RARITY_COLOR[char.rarity] || '#ccc'}">${RARITY_LABEL[char.rarity]}</span> ` : '';
     card.innerHTML = `
       <img src="${getPortraitDataUrl(char.id)}" alt="" />
       <div class="character-info">
@@ -2300,21 +2309,78 @@ function characterPower(char) {
   return UNIT_STATS[char.type].rank + (RARITY_RANK_BONUS[char.rarity] || 0);
 }
 
-function buildCharacterProgressRow(char) {
+// コンパクトなアイコン+色付き★のみのタイル。詳細情報は長押しで#character-detail-modalに表示する
+function buildCharacterTile(char) {
   const count = profile.characterCardCounts[char.id] || 0;
   const unlocked = profile.unlockedCharacters.includes(char.id);
   const bonus = characterCollectionBonus(count);
-  const row = document.createElement('div');
-  row.className = 'char-progress-row' + (bonus > 0 ? ' enhanced' : unlocked ? ' unlocked' : ' locked-row');
-  const statusText = unlocked ? `🤝仲間${bonus > 0 ? `(+${bonus})` : ''}` : `未仲間(あと${CHARACTER_GACHA_UNLOCK_COUNT - count}枚)`;
-  const ratePct = (characterDropRate(char) * 100).toFixed(2);
-  row.innerHTML = `
+  const tile = document.createElement('div');
+  tile.className = 'char-tile' + (bonus > 0 ? ' enhanced' : unlocked ? ' unlocked' : ' locked-row');
+  tile.dataset.charId = char.id;
+  tile.innerHTML = `
     <img src="${getPortraitDataUrl(char.id)}" alt="" />
-    <span class="char-progress-name">${RARITY_LABEL[char.rarity]} ${char.name}<span class="hint">(${char.title})</span><span class="char-progress-rate">確率${ratePct}%</span></span>
-    <span class="char-progress-count">${statusText} ${count}枚</span>
+    <span class="char-tile-stars" style="color:${RARITY_COLOR[char.rarity] || '#ccc'}">${RARITY_LABEL[char.rarity]}</span>
+    <span class="char-tile-count">${count}枚</span>
   `;
-  return row;
+  return tile;
 }
+
+// 汎用の長押し検出(盤面のInputControllerとは別に、プレーンなDOMリスト向けの軽量版)
+function attachLongPress(container, selector, onLongPress, ms = 450) {
+  let timer = null;
+  let startX = 0;
+  let startY = 0;
+  const TOLERANCE = 8;
+  const clear = () => {
+    clearTimeout(timer);
+    timer = null;
+  };
+  container.addEventListener('pointerdown', (e) => {
+    const target = e.target.closest(selector);
+    if (!target) return;
+    startX = e.clientX;
+    startY = e.clientY;
+    clear();
+    timer = setTimeout(() => {
+      timer = null;
+      onLongPress(target);
+    }, ms);
+  });
+  container.addEventListener('pointermove', (e) => {
+    if (!timer) return;
+    if (Math.abs(e.clientX - startX) > TOLERANCE || Math.abs(e.clientY - startY) > TOLERANCE) clear();
+  });
+  container.addEventListener('pointerup', clear);
+  container.addEventListener('pointercancel', clear);
+  container.addEventListener('pointerleave', clear);
+}
+
+function showCharacterDetail(char) {
+  const count = profile.characterCardCounts[char.id] || 0;
+  const unlocked = profile.unlockedCharacters.includes(char.id);
+  const bonus = characterCollectionBonus(count);
+  characterDetailPortrait.src = getPortraitDataUrl(char.id);
+  characterDetailName.textContent = char.name;
+  characterDetailTitle.textContent = `${char.title}(${UNIT_STATS[char.type].label})`;
+  characterDetailStars.textContent = RARITY_LABEL[char.rarity];
+  characterDetailStars.style.color = RARITY_COLOR[char.rarity] || '#ccc';
+  characterDetailStatus.textContent = unlocked
+    ? `🤝仲間${bonus > 0 ? `(+${bonus})` : ''} 所持${count}枚`
+    : `未仲間(あと${CHARACTER_GACHA_UNLOCK_COUNT - count}枚) 所持${count}枚`;
+  characterDetailRate.textContent = `出現確率 ${(characterDropRate(char) * 100).toFixed(2)}%`;
+  characterDetailModal.hidden = false;
+}
+characterDetailCloseBtn.addEventListener('click', () => {
+  characterDetailModal.hidden = true;
+});
+attachLongPress(collectionList, '.char-tile', (tile) => {
+  const char = findCharacterCard(tile.dataset.charId);
+  if (char) showCharacterDetail(char);
+});
+attachLongPress(collectionFeaturedList, '.char-tile', (tile) => {
+  const char = findCharacterCard(tile.dataset.charId);
+  if (char) showCharacterDetail(char);
+});
 
 function refreshShopUI() {
   updateGemDisplay();
@@ -2372,6 +2438,7 @@ function updateHomeTabActive() {
     renderFeaturedCharacters();
     renderCollection();
     renderStoryCards();
+    renderLineupEditor();
   }
 }
 let homePagerScrollTimer = null;
@@ -2397,6 +2464,62 @@ for (const n of ALL_NATIONS_FOR_FILTER) {
 for (const el of [collectionSort, collectionFilterStatus, collectionFilterRarity, collectionFilterType, collectionFilterNation]) {
   el.addEventListener('change', renderCollection);
 }
+
+// ---------- 出陣メンバーの事前設定(大将1人+副将2人まで。カードタブから直接編集できる) ----------
+// profile.storyLastGeneral/storyLastViceGenerals にそのまま保存する(character-select-modalが
+// デフォルト選択として読む値と全く同じフィールドなので、戦闘開始フローは一切変更しなくてよい)
+const LINEUP_VICE_LIMIT = 2;
+
+function renderLineupEditor() {
+  const roster = storyCharacterRoster();
+  const general = roster.find((c) => c.id === profile.storyLastGeneral)?.id || roster[0]?.id || null;
+  const vice = new Set(
+    (profile.storyLastViceGenerals || [])
+      .filter((id) => id !== general && roster.some((c) => c.id === id))
+      .slice(0, LINEUP_VICE_LIMIT)
+  );
+  profile.storyLastGeneral = general;
+  profile.storyLastViceGenerals = [...vice];
+
+  lineupEditorList.innerHTML = '';
+  for (const char of roster) {
+    const isGeneral = general === char.id;
+    const isVice = vice.has(char.id);
+    const card = document.createElement('div');
+    card.className = 'character-card' + (isGeneral || isVice ? ' selected' : '');
+    card.innerHTML = `
+      <img src="${getPortraitDataUrl(char.id)}" alt="" />
+      <div class="character-info">
+        <div class="character-name">${char.name} <span class="hint">(${UNIT_STATS[char.type].label})</span></div>
+        <div class="character-title">${char.title}</div>
+      </div>
+      <div class="character-role-buttons">
+        <button type="button" class="role-btn general${isGeneral ? ' active' : ''}" data-role="general" data-id="${char.id}">👑大将</button>
+        <button type="button" class="role-btn vice${isVice ? ' active' : ''}" data-role="vice" data-id="${char.id}"${!isVice && vice.size >= LINEUP_VICE_LIMIT ? ' disabled' : ''}>🎖️副将</button>
+      </div>
+    `;
+    lineupEditorList.appendChild(card);
+  }
+}
+
+lineupEditorList.addEventListener('click', (e) => {
+  const btn = e.target.closest('.role-btn');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const vice = new Set(profile.storyLastViceGenerals || []);
+  if (btn.dataset.role === 'general') {
+    if (profile.storyLastGeneral === id) return;
+    profile.storyLastGeneral = id;
+    vice.delete(id);
+  } else {
+    if (id === profile.storyLastGeneral) return;
+    if (vice.has(id)) vice.delete(id);
+    else if (vice.size < LINEUP_VICE_LIMIT) vice.add(id);
+  }
+  profile.storyLastViceGenerals = [...vice];
+  saveProfile(profile);
+  renderLineupEditor();
+});
 
 // ---------- ストーリー武将カード(常設4人+首都陥落で仲間になる8ヶ国) ----------
 const STORY_RECRUITABLE_NATION_IDS = STORY_NATIONS.filter((n) => n.id !== 'haga').map((n) => n.id);
@@ -2458,7 +2581,7 @@ function renderCollection() {
   collectionCountSummary.textContent = `${list.length}件 / 全${CHARACTER_CARDS.length}件`;
   collectionList.innerHTML = '';
   for (const char of list) {
-    collectionList.appendChild(buildCharacterProgressRow(char));
+    collectionList.appendChild(buildCharacterTile(char));
   }
 }
 
@@ -2466,9 +2589,9 @@ function renderFeaturedCharacters() {
   collectionFeaturedList.innerHTML = '';
   const featured = CHARACTER_CARDS.filter((c) => c.rarity === 5);
   for (const char of featured) {
-    const row = buildCharacterProgressRow(char);
-    row.classList.add('featured-card');
-    collectionFeaturedList.appendChild(row);
+    const tile = buildCharacterTile(char);
+    tile.classList.add('featured-card');
+    collectionFeaturedList.appendChild(tile);
   }
 }
 
@@ -2567,6 +2690,7 @@ function revealCurrentCard() {
   gachaRevealCard.style.setProperty('--rarity-color', RARITY_COLOR[char.rarity] || '#ccc');
   gachaRevealPortrait.src = getPortraitDataUrl(char.id);
   gachaRevealRarity.textContent = RARITY_LABEL[char.rarity];
+  gachaRevealRarity.style.color = RARITY_COLOR[char.rarity] || '#ccc';
   gachaRevealName.textContent = char.name;
   gachaRevealTitle.textContent = char.title;
   gachaRevealSkill.textContent = `✨${char.skillName}: ${char.skillDesc}`;
@@ -2626,7 +2750,7 @@ function finishGachaSequence() {
     item.style.animationDelay = `${i * 0.05}s`;
     item.innerHTML = `
       <img src="${getPortraitDataUrl(char.id)}" alt="" />
-      <span class="gacha-summary-rarity">${RARITY_LABEL[char.rarity]}</span>
+      <span class="gacha-summary-rarity" style="color:${RARITY_COLOR[char.rarity] || '#ccc'}">${RARITY_LABEL[char.rarity]}</span>
       <span class="gacha-summary-name">${char.name}</span>
     `;
     gachaSummaryGrid.appendChild(item);

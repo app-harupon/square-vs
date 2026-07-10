@@ -103,6 +103,12 @@
           <h2>🎴 カード</h2>
 
           <div class="cards-section">
+            <h3>🎖️ 出陣メンバーを決めておく</h3>
+            <p class="hint">大将1人・副将2人まで、あらかじめ選んでおけます。ストーリーモードの戦闘開始時にここで選んだメンバーが最初から選択された状態になります。</p>
+            <div id="lineup-editor-list" class="character-select-list lineup-editor-list"></div>
+          </div>
+
+          <div class="cards-section">
             <h3>⚔️ ストーリー武将</h3>
             <p class="hint">ストーリーモードで大将・副将として使える武将たちです。各国の首都タイルでの勝利によって仲間になります。</p>
             <div id="story-cards-list" class="story-cards-list"></div>
@@ -546,6 +552,25 @@
       <div class="panel-actions">
         <button id="character-select-confirm-btn" class="btn btn-primary">出陣!</button>
         <button id="character-select-cancel-btn" class="btn btn-ghost">やめる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 武将図鑑: カードを長押しした時の詳細 ===== -->
+  <div id="character-detail-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <div class="character-detail-header">
+        <img id="character-detail-portrait" alt="" />
+        <div>
+          <h2 id="character-detail-name"></h2>
+          <p id="character-detail-title" class="hint"></p>
+          <p id="character-detail-stars" class="character-detail-stars"></p>
+        </div>
+      </div>
+      <p id="character-detail-status" class="hint"></p>
+      <p id="character-detail-rate" class="hint"></p>
+      <div class="panel-actions">
+        <button id="character-detail-close-btn" class="btn btn-primary">閉じる</button>
       </div>
     </div>
   </div>
