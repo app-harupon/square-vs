@@ -79,16 +79,16 @@ export function generateTerrain(size, deployDepth) {
     growRiver(grid, size, isDeployZone, setIfFree);
   }
 
-  // --- 山脈 + 丘 ---
-  const mountainClusters = Math.max(1, Math.floor(size / 10));
+  // --- 山脈 + 丘(山岳地域として存在感を出すため、クラスタ数を増やし範囲も広げる) ---
+  const mountainClusters = Math.max(1, Math.round(size / 6));
   for (let m = 0; m < mountainClusters; m++) {
     growMountainRange(size, isDeployZone, setIfFree);
   }
 
-  // --- 森のまとまり ---
-  const forestClusters = Math.max(1, Math.floor(size / 5));
+  // --- 森のまとまり(森林地域として広い範囲を占めるよう、クラスタ数・1つあたりの大きさを増やす) ---
+  const forestClusters = Math.max(2, Math.round(size / 3));
   for (let f = 0; f < forestClusters; f++) {
-    growBlob(size, isDeployZone, setIfFree, TERRAIN.FOREST, 3 + rnd(4));
+    growBlob(size, isDeployZone, setIfFree, TERRAIN.FOREST, 5 + rnd(7));
   }
 
   // --- 道 (出撃ゾーン同士をゆるく繋ぐ) ---
@@ -119,16 +119,16 @@ function growRiver(grid, size, isDeployZone, setIfFree) {
 }
 
 function growMountainRange(size, isDeployZone, setIfFree) {
-  const len = 2 + rnd(Math.max(2, Math.floor(size / 4)));
+  const len = 3 + rnd(Math.max(3, Math.floor(size / 3)));
   let x = rnd(size);
   let y = rnd(size);
   const dir = rnd(2) === 0 ? [1, 0] : [0, 1];
   for (let i = 0; i < len; i++) {
     setIfFree(x, y, TERRAIN.MOUNTAIN);
-    // 山の周囲に丘を配置
+    // 山の周囲に丘を配置(山麓が厚くなるよう、以前より高い確率で置く)
     const hillSpots = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
     for (const [hx, hy] of hillSpots) {
-      if (rnd(2) === 0) setIfFree(hx, hy, TERRAIN.HILL);
+      if (rnd(5) < 3) setIfFree(hx, hy, TERRAIN.HILL);
     }
     x += dir[0] * (rnd(2) === 0 ? 1 : 0);
     y += dir[1] * (rnd(2) === 0 ? 1 : 0);
