@@ -1,4 +1,4 @@
-const CACHE_NAME = 'warchess-cache-v43';
+const CACHE_NAME = 'warchess-cache-v44';
 const ASSETS = [
   './',
   './index.html',
@@ -18,7 +18,7 @@ const ASSETS = [
   './js/core/characters.js',
   './js/core/storyBattle.js',
   './js/core/worldMap.js',
-  './js/ui/render3d.js',
+  './js/ui/render2d.js',
   './js/ui/input.js',
   './js/ui/portraits.js',
   './js/audio/sound.js',
@@ -30,10 +30,8 @@ const ASSETS = [
 
 // CDN(外部オリジン)から取得するアセットは、失敗してもインストール全体を失敗させないよう
 // ASSETSとは別に、ベストエフォートでキャッシュしておく
-const CDN_ASSETS = [
-  'https://unpkg.com/three@0.160.0/build/three.module.js',
-  'https://unpkg.com/three@0.160.0/examples/jsm/geometries/RoundedBoxGeometry.js',
-];
+// (盤面は2D Canvas描画のみになったため、Three.js系のCDN依存は無し)
+const CDN_ASSETS = [];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -51,7 +51,7 @@ import {
   isFortressTile,
   ensureMapExtras,
 } from './core/worldMap.js';
-import { Renderer3D as Renderer } from './ui/render3d.js';
+import { Renderer2D as Renderer } from './ui/render2d.js';
 import { InputController } from './ui/input.js';
 import { NetClient } from './net/client.js';
 import { getPortraitDataUrl } from './ui/portraits.js';
@@ -1244,16 +1244,6 @@ function announceTurn(isPlayerTurn) {
   }, 1400);
 }
 
-$('rotate-left-btn').addEventListener('click', () => {
-  if (!renderer) return;
-  renderer.rotateCCW();
-  render();
-});
-$('rotate-right-btn').addEventListener('click', () => {
-  if (!renderer) return;
-  renderer.rotateCW();
-  render();
-});
 $('zoom-in-btn').addEventListener('click', () => {
   if (!renderer) return;
   const rect = canvasWrap.getBoundingClientRect();
@@ -1264,16 +1254,6 @@ $('zoom-out-btn').addEventListener('click', () => {
   if (!renderer) return;
   const rect = canvasWrap.getBoundingClientRect();
   renderer.zoomAt(0.8, rect.width / 2, rect.height / 2);
-  render();
-});
-$('tilt-up-btn').addEventListener('click', () => {
-  if (!renderer) return;
-  renderer.tiltBy(0.15);
-  render();
-});
-$('tilt-down-btn').addEventListener('click', () => {
-  if (!renderer) return;
-  renderer.tiltBy(-0.15);
   render();
 });
 
