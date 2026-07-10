@@ -1,4 +1,4 @@
-// Canvas 2D による斜め見下ろし疑似アイソメ(2:1ダイヤモンド投影)の盤面レンダラー。
+// Canvas 2D による真上見下ろし(正方形グリッド・市松模様)の盤面レンダラー。
 // 旧3D版(render3d.js, Three.js)と同じ公開インターフェース(draw/screenToBoard/fitBoard/resize/
 // rotateBy/tiltBy/zoomAt/animateMove/hasActiveAnimations/animations)を持たせることで、
 // main.js / input.js 側の呼び出しコードを一切変えずに差し替えられるようにしている。
@@ -6,15 +6,12 @@ import { TERRAIN } from '../core/terrain.js';
 import { isConcealedFrom } from '../core/rules.js';
 import { UNIT_TYPES } from '../core/units.js';
 
-// 地形の起伏(標高)。ハーフタイル高さ(halfH)に対する比率で表現し、ズームしても比率が保たれるようにする
-const ELEVATION_RATIO = { [TERRAIN.HILL]: 0.7, [TERRAIN.MOUNTAIN]: 1.6 };
-
 const TERRAIN_COLORS = {
-  [TERRAIN.PLAIN]: '#bfe89a',
-  [TERRAIN.FOREST]: '#5fae5f',
+  [TERRAIN.PLAIN]: '#8fd35a',
+  [TERRAIN.FOREST]: '#4a9a4a',
   [TERRAIN.HILL]: '#9ecf72',
   [TERRAIN.MOUNTAIN]: '#b2a8cf',
-  [TERRAIN.WATER]: '#8fd8f5',
+  [TERRAIN.WATER]: '#7fd0f0',
   [TERRAIN.ROAD]: '#e7dab6',
 };
 
@@ -49,8 +46,7 @@ export class Renderer2D {
     this.viewerFlip = false;
     this.animations = new Map();
 
-    this.halfW = 32; // ダイヤモンド1マスの水平半幅(px、board空間)
-    this.halfH = 16; // 垂直半高(2:1比率)
+    this.tileSize = 32; // 正方形1マスの一辺(px、board空間)
     this.originX = 0; // 盤面の中心(gx=gy=(size-1)/2)をどのスクリーン座標に置くか
     this.originY = 0;
     this.zoom = 1;
@@ -69,24 +65,25 @@ export class Renderer2D {
   }
 
   // ---------- 座標変換(グリッド <-> 盤面空間 <-> スクリーン) ----------
-  // 「盤面空間」= zoom/pan適用前の、halfW/halfHで決まる論理ピクセル座標。
+  // 「盤面空間」= zoom/pan適用前の、tileSizeで決まる論理ピクセル座標(正方形グリッド)。
   // 実際のスクリーン座標は ctx の setTransform(zoom, ..., originX+panX, originY+panY) で得られる。
   flipXY(gx, gy) {
     if (!this.viewerFlip) return { x: gx, y: gy };
     return { x: this.size - 1 - gx, y: this.size - 1 - gy };
   }
 
-  elevationAt(state, gx, gy) {
-    const terrain = state.grid[gy]?.[gx]?.terrain;
-    return (ELEVATION_RATIO[terrain] || 0) * this.halfH;
+  // 真上見下ろしの正方形グリッドでは高低差を空間的なズレとしては表現しない(APIの互換のため残す)
+  elevationAt() {
+    return 0;
   }
 
-  // グリッド座標(+標高px)を盤面空間座標に変換する
-  boardPos(gx, gy, elevationPx = 0) {
+  // グリッド座標を盤面空間座標(タイル中心)に変換する
+  boardPos(gx, gy) {
     const { x, y } = this.flipXY(gx, gy);
+    const half = (this.size - 1) / 2;
     return {
-      x: (x - y) * this.halfW,
-      y: (x + y) * this.halfH - elevationPx,
+      x: (x - half) * this.tileSize,
+      y: (y - half) * this.tileSize,
     };
   }
 
@@ -144,25 +141,21 @@ export class Renderer2D {
     this.panX = 0;
     this.panY = 0;
     this._lastPan = null;
-    const padW = Math.max(60, this.cssWidth * 0.88);
-    const padH = Math.max(60, this.cssHeight * 0.7);
-    const halfWFromWidth = padW / (2 * size);
-    const halfWFromHeight = padH / size; // halfH = halfW/2 なので高さ方向は概ね size*halfW に収まる
-    this.halfW = clamp(Math.min(halfWFromWidth, halfWFromHeight), 10, 72);
-    this.halfH = this.halfW / 2;
+    const padW = Math.max(60, this.cssWidth * 0.94);
+    const padH = Math.max(60, this.cssHeight * 0.88);
+    this.tileSize = clamp(Math.min(padW / size, padH / size), 12, 90);
     this.originX = this.cssWidth / 2;
-    this.originY = this.cssHeight * 0.5 - ((size - 1) * this.halfH) - this.halfW * 0.6;
-    this._lastGrid = null; // halfW/halfHが変わるので地形キャッシュを必ず作り直す
+    this.originY = this.cssHeight / 2;
+    this._lastGrid = null; // tileSizeが変わるので地形キャッシュを必ず作り直す
   }
 
   // ---------- 画面座標 -> グリッド座標 ----------
   screenToBoard(sx, sy) {
     const relX = (sx - this.originX - this.panX) / this.zoom;
     const relY = (sy - this.originY - this.panY) / this.zoom;
-    const sum = relY / this.halfH;
-    const diff = relX / this.halfW;
-    let gx = Math.round((sum + diff) / 2);
-    let gy = Math.round((sum - diff) / 2);
+    const half = (this.size - 1) / 2;
+    let gx = Math.round(relX / this.tileSize + half);
+    let gy = Math.round(relY / this.tileSize + half);
     if (this.viewerFlip) {
       gx = this.size - 1 - gx;
       gy = this.size - 1 - gy;
@@ -173,9 +166,7 @@ export class Renderer2D {
 
   // ---------- 移動アニメーション ----------
   animateMove(state, squad, fromX, fromY, toX, toY, duration = 350) {
-    const fromElev = this.elevationAt(state, fromX, fromY);
-    const toElev = this.elevationAt(state, toX, toY);
-    this.animations.set(squad.id, { fromX, fromY, toX, toY, fromElev, toElev, start: performance.now(), duration });
+    this.animations.set(squad.id, { fromX, fromY, toX, toY, start: performance.now(), duration });
   }
 
   hasActiveAnimations() {
@@ -193,8 +184,7 @@ export class Renderer2D {
     const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     const gx = anim.fromX + (anim.toX - anim.fromX) * ease;
     const gy = anim.fromY + (anim.toY - anim.fromY) * ease;
-    const elev = anim.fromElev + (anim.toElev - anim.fromElev) * ease;
-    return { gx, gy, elev };
+    return { gx, gy };
   }
 
   // ---------- 描画本体 ----------
@@ -221,30 +211,26 @@ export class Renderer2D {
   // ---------- 地形レイヤー(グリッド変更時のみ再構築してオフスクリーンcanvasにキャッシュする) ----------
   _buildTerrainLayer(state) {
     const size = state.size;
-    // 盤面空間でのバウンディングボックスを計算してオフスクリーンcanvasを確保する
-    const maxElev = Math.max(...Object.values(ELEVATION_RATIO)) * this.halfH;
-    const minX = -(size - 1) * this.halfW - this.halfW;
-    const maxX = (size - 1) * this.halfW + this.halfW;
-    const minY = -this.halfH - maxElev;
-    const maxY = (size - 1) * 2 * this.halfH + this.halfH + this.halfW * 0.6; // 城アイコン分の余白
-    const w = Math.ceil(maxX - minX);
-    const h = Math.ceil(maxY - minY);
-    this._terrainOriginX = minX;
-    this._terrainOriginY = minY;
+    const t = this.tileSize;
+    const margin = t * 0.8; // 城アイコンなどがマス外にはみ出す分の余白
+    const w = size * t + margin * 2;
+    const h = size * t + margin * 2;
+    this._terrainOriginX = -(size * t) / 2 - margin;
+    this._terrainOriginY = -(size * t) / 2 - margin;
 
     const off = document.createElement('canvas');
-    off.width = Math.max(1, w);
-    off.height = Math.max(1, h);
+    off.width = Math.max(1, Math.ceil(w));
+    off.height = Math.max(1, Math.ceil(h));
     const ctx = off.getContext('2d');
-    ctx.translate(-minX, -minY);
+    ctx.translate(-this._terrainOriginX, -this._terrainOriginY);
 
     this._waterTiles = [];
     for (let gy = 0; gy < size; gy++) {
       for (let gx = 0; gx < size; gx++) {
         const terrain = state.grid[gy][gx].terrain;
-        const elevPx = (ELEVATION_RATIO[terrain] || 0) * this.halfH;
-        const pos = this.boardPos(gx, gy, elevPx);
-        this._drawTile(ctx, pos.x, pos.y, terrain, elevPx, gx, gy);
+        const pos = this.boardPos(gx, gy);
+        const checker = (gx + gy) % 2 === 0;
+        this._drawTile(ctx, pos.x, pos.y, terrain, checker, gx, gy);
         if (terrain === TERRAIN.WATER) this._waterTiles.push({ x: pos.x, y: pos.y });
       }
     }
@@ -252,40 +238,19 @@ export class Renderer2D {
     this._terrainCanvas = off;
   }
 
-  _diamondPath(ctx, cx, cy) {
+  _tileRectPath(ctx, cx, cy, inset = 0) {
+    const t = this.tileSize;
     ctx.beginPath();
-    ctx.moveTo(cx, cy - this.halfH);
-    ctx.lineTo(cx + this.halfW, cy);
-    ctx.lineTo(cx, cy + this.halfH);
-    ctx.lineTo(cx - this.halfW, cy);
-    ctx.closePath();
+    ctx.rect(cx - t / 2 + inset, cy - t / 2 + inset, t - inset * 2, t - inset * 2);
   }
 
-  _drawTile(ctx, cx, cy, terrain, elevPx, gx, gy) {
-    const color = TERRAIN_COLORS[terrain] || '#cccccc';
-    // 起伏(丘・山)の側面を先に描き、疑似的な立体感を出す
-    if (elevPx > 0.5) {
-      ctx.fillStyle = shade(color, 0.72);
-      ctx.beginPath();
-      ctx.moveTo(cx - this.halfW, cy);
-      ctx.lineTo(cx, cy + this.halfH);
-      ctx.lineTo(cx, cy + this.halfH + elevPx);
-      ctx.lineTo(cx - this.halfW, cy + elevPx);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = shade(color, 0.58);
-      ctx.beginPath();
-      ctx.moveTo(cx, cy + this.halfH);
-      ctx.lineTo(cx + this.halfW, cy);
-      ctx.lineTo(cx + this.halfW, cy + elevPx);
-      ctx.lineTo(cx, cy + this.halfH + elevPx);
-      ctx.closePath();
-      ctx.fill();
-    }
-    this._diamondPath(ctx, cx, cy);
+  _drawTile(ctx, cx, cy, terrain, checker, gx, gy) {
+    const base = TERRAIN_COLORS[terrain] || '#cccccc';
+    const color = checker ? shade(base, 1.08) : shade(base, 0.92);
+    this._tileRectPath(ctx, cx, cy);
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -293,6 +258,7 @@ export class Renderer2D {
   }
 
   _drawTerrainDecor(ctx, cx, cy, terrain, gx, gy) {
+    const t = this.tileSize;
     let seed = (gx * 928371 + gy * 128371 + 17) % 1000;
     const rand = () => {
       seed = (seed * 9301 + 49297) % 233280;
@@ -301,44 +267,43 @@ export class Renderer2D {
     if (terrain === TERRAIN.FOREST) {
       const count = rand() > 0.5 ? 2 : 1;
       for (let i = 0; i < count; i++) {
-        const dx = (rand() - 0.5) * this.halfW * 0.9;
-        const dy = (rand() - 0.5) * this.halfH * 0.9;
-        this._drawTree(ctx, cx + dx, cy + dy);
+        const dx = (rand() - 0.5) * t * 0.5;
+        const dy = (rand() - 0.5) * t * 0.5;
+        this._drawTree(ctx, cx + dx, cy + dy, t);
       }
     } else if (terrain === TERRAIN.MOUNTAIN) {
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = 'rgba(70,60,90,0.4)';
       ctx.beginPath();
-      ctx.moveTo(cx, cy - this.halfH * 0.85);
-      ctx.lineTo(cx + this.halfW * 0.28, cy - this.halfH * 0.1);
-      ctx.lineTo(cx - this.halfW * 0.28, cy - this.halfH * 0.1);
+      ctx.moveTo(cx, cy - t * 0.32);
+      ctx.lineTo(cx + t * 0.28, cy + t * 0.28);
+      ctx.lineTo(cx - t * 0.28, cy + t * 0.28);
       ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = 'rgba(70,60,90,0.35)';
-      for (let i = 0; i < 3; i++) {
-        const dx = (rand() - 0.5) * this.halfW * 0.7;
-        const dy = (rand() - 0.5) * this.halfH * 0.5 + this.halfH * 0.15;
-        ctx.beginPath();
-        ctx.ellipse(cx + dx, cy + dy, 2.5, 1.8, rand() * Math.PI, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - t * 0.32);
+      ctx.lineTo(cx + t * 0.1, cy - t * 0.05);
+      ctx.lineTo(cx - t * 0.1, cy - t * 0.05);
+      ctx.closePath();
+      ctx.fill();
     } else if (terrain === TERRAIN.ROAD) {
       ctx.strokeStyle = 'rgba(120,95,55,0.4)';
-      ctx.lineWidth = Math.max(1, this.halfW * 0.08);
+      ctx.lineWidth = Math.max(1, t * 0.06);
       ctx.lineCap = 'round';
-      for (const off of [-0.3, 0.3]) {
+      for (const off of [-0.22, 0.22]) {
         ctx.beginPath();
-        ctx.moveTo(cx - this.halfW * 0.5, cy + off * this.halfH);
-        ctx.lineTo(cx + this.halfW * 0.5, cy + off * this.halfH);
+        ctx.moveTo(cx - t * 0.4 + off * t, cy - t * 0.4);
+        ctx.lineTo(cx - t * 0.4 + off * t, cy + t * 0.4);
         ctx.stroke();
       }
     } else if (terrain === TERRAIN.PLAIN || terrain === TERRAIN.HILL) {
       const count = terrain === TERRAIN.HILL ? 4 : 2;
-      ctx.strokeStyle = terrain === TERRAIN.HILL ? 'rgba(60,110,40,0.55)' : 'rgba(80,140,60,0.5)';
+      ctx.strokeStyle = terrain === TERRAIN.HILL ? 'rgba(40,90,30,0.5)' : 'rgba(50,110,40,0.45)';
       ctx.lineWidth = 1.4;
       ctx.lineCap = 'round';
       for (let i = 0; i < count; i++) {
-        const dx = (rand() - 0.5) * this.halfW * 1.1;
-        const dy = (rand() - 0.5) * this.halfH * 0.8;
+        const dx = (rand() - 0.5) * t * 0.7;
+        const dy = (rand() - 0.5) * t * 0.7;
         ctx.beginPath();
         ctx.moveTo(cx + dx, cy + dy + 3);
         ctx.lineTo(cx + dx, cy + dy - 3);
@@ -347,18 +312,18 @@ export class Renderer2D {
     }
   }
 
-  _drawTree(ctx, cx, cy) {
+  _drawTree(ctx, cx, cy, t) {
     ctx.strokeStyle = '#8a5a3a';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(cx, cy + 2);
-    ctx.lineTo(cx, cy - 3);
+    ctx.moveTo(cx, cy + t * 0.1);
+    ctx.lineTo(cx, cy - t * 0.05);
     ctx.stroke();
-    ctx.fillStyle = '#4f9e5a';
+    ctx.fillStyle = '#3f8a45';
     ctx.beginPath();
-    ctx.moveTo(cx, cy - 16);
-    ctx.lineTo(cx + 8, cy - 2);
-    ctx.lineTo(cx - 8, cy - 2);
+    ctx.moveTo(cx, cy - t * 0.36);
+    ctx.lineTo(cx + t * 0.18, cy - t * 0.06);
+    ctx.lineTo(cx - t * 0.18, cy - t * 0.06);
     ctx.closePath();
     ctx.fill();
   }
@@ -368,15 +333,13 @@ export class Renderer2D {
     const size = state.size;
     const gx = Math.floor((size - 1) / 2);
     const gy = size - 1;
-    const terrain = state.grid[gy][gx].terrain;
-    const elevPx = (ELEVATION_RATIO[terrain] || 0) * this.halfH;
-    const pos = this.boardPos(gx, gy, elevPx);
+    const pos = this.boardPos(gx, gy);
     const glyph = state.landmark === 'castle' ? '🏯' : '🛖';
-    const fontSize = this.halfW * (state.landmark === 'castle' ? 1.7 : 1.2);
+    const fontSize = this.tileSize * (state.landmark === 'castle' ? 1.3 : 1.0);
     ctx.font = `${fontSize}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(glyph, pos.x, pos.y + this.halfH * 0.3);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(glyph, pos.x, pos.y);
   }
 
   // 水面のきらめきを毎フレーム軽く動かす(地形キャッシュとは別の薄い動的レイヤー)
@@ -384,14 +347,15 @@ export class Renderer2D {
     if (!this._waterTiles || !this._waterTiles.length) return;
     this._waterPhase += 0.02;
     const ctx = this.ctx;
+    const t = this.tileSize;
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
     ctx.lineWidth = 1.2;
-    for (const t of this._waterTiles) {
+    for (const tile of this._waterTiles) {
       ctx.beginPath();
-      const off = Math.sin(this._waterPhase + t.x * 0.05) * this.halfH * 0.18;
-      ctx.moveTo(t.x - this.halfW * 0.4, t.y + off);
-      ctx.lineTo(t.x + this.halfW * 0.4, t.y - off);
+      const off = Math.sin(this._waterPhase + tile.x * 0.05) * t * 0.12;
+      ctx.moveTo(tile.x - t * 0.3, tile.y + off);
+      ctx.lineTo(tile.x + t * 0.3, tile.y - off);
       ctx.stroke();
     }
     ctx.restore();
@@ -401,11 +365,10 @@ export class Renderer2D {
   _drawHighlights(state, view) {
     const ctx = this.ctx;
     const addTile = (gx, gy, color, opacity) => {
-      const elevPx = this.elevationAt(state, gx, gy);
-      const pos = this.boardPos(gx, gy, elevPx);
+      const pos = this.boardPos(gx, gy);
       ctx.globalAlpha = opacity;
       ctx.fillStyle = color;
-      this._diamondPath(ctx, pos.x, pos.y - 1);
+      this._tileRectPath(ctx, pos.x, pos.y, this.tileSize * 0.04);
       ctx.fill();
       ctx.globalAlpha = 1;
     };
@@ -439,40 +402,43 @@ export class Renderer2D {
   _drawSquads(state, view) {
     const ctx = this.ctx;
     const alive = state.squads.filter((s) => s.alive);
-    // 疑似アイソメでの重なりを正しく見せるため、奥から手前(flip後のgx+gy昇順)へ描く
+    // 真上見下ろしでは奥行きの錯覚は無いが、手前の行の駒が奥の行の駒の上に少し重なっても
+    // 自然に見えるよう、行(flip後のgy)が大きいものを後から描く
     const withDepth = alive.map((squad) => {
       const anim = this.getAnimatedGrid(squad);
       const gx = anim ? anim.gx : squad.x;
       const gy = anim ? anim.gy : squad.y;
-      const elevPx = anim ? anim.elev : this.elevationAt(state, squad.x, squad.y);
       const flipped = this.flipXY(gx, gy);
-      return { squad, gx, gy, elevPx, depth: flipped.x + flipped.y };
+      return { squad, gx, gy, depth: flipped.y };
     });
     withDepth.sort((a, b) => a.depth - b.depth);
 
-    for (const { squad, gx, gy, elevPx } of withDepth) {
+    for (const { squad, gx, gy } of withDepth) {
       const concealed = isConcealedFrom(state, squad, view.viewerId);
-      const pos = this.boardPos(gx, gy, elevPx);
+      const pos = this.boardPos(gx, gy);
       const img = this._getSquadImage(squad, concealed);
-      const unitH = this.halfW * 2.5;
+      const unitH = this.tileSize * 1.15;
       const unitW = unitH * (ICON_W / ICON_H);
+      const feetY = pos.y + this.tileSize * 0.42;
       ctx.globalAlpha = squad.actedThisTurn ? 0.55 : 1;
-      ctx.drawImage(img, pos.x - unitW / 2, pos.y - unitH + this.halfH * 0.35, unitW, unitH);
+      ctx.drawImage(img, pos.x - unitW / 2, feetY - unitH, unitW, unitH);
       ctx.globalAlpha = 1;
-      this._drawCountBadge(ctx, pos.x, pos.y - unitH + this.halfH * 0.15, concealed ? '???' : String(squad.count));
+      this._drawCountBadge(ctx, pos.x, feetY - unitH - this.tileSize * 0.06, concealed ? '???' : String(squad.count));
     }
   }
 
+  // 参考画像のHPバー風: 赤いバーの上に白文字で数値を乗せる
   _drawCountBadge(ctx, cx, cy, text) {
-    ctx.font = `bold ${Math.max(10, this.halfW * 0.42)}px sans-serif`;
-    const padX = 6;
-    const textW = ctx.measureText(text).width;
-    const w = textW + padX * 2;
-    const h = this.halfW * 0.6;
-    ctx.fillStyle = 'rgba(30,30,40,0.8)';
+    const w = this.tileSize * 0.92;
+    const h = Math.max(9, this.tileSize * 0.22);
+    ctx.fillStyle = 'rgba(30,20,20,0.85)';
+    roundRectPath(ctx, cx - w / 2 - 1, cy - h / 2 - 1, w + 2, h + 2, h / 2 + 1);
+    ctx.fill();
+    ctx.fillStyle = '#e3342f';
     roundRectPath(ctx, cx - w / 2, cy - h / 2, w, h, h / 2);
     ctx.fill();
     ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.max(9, h * 0.78)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, cx, cy + 1);
