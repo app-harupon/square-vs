@@ -19,6 +19,9 @@ export function findDifficulty(id) {
   return STORY_DIFFICULTIES.find((d) => d.id === id) || STORY_DIFFICULTIES[2];
 }
 
+// 難易度選択画面に出す難易度(ハード/ヘルはUIから外す。データ自体・ハード/ヘル限定コンテンツは残す)
+export const SELECTABLE_STORY_DIFFICULTIES = STORY_DIFFICULTIES.filter((d) => d.id !== 'hard' && d.id !== 'hell');
+
 // 領土の戦闘を5回終えるごとに、世界中の国の兵力が10%ずつ強化されていく
 // (静かに待つより、どんどん攻め込んで戦況を動かした方が強い意味は持たせない。世界全体が変化していく演出)
 const WORLD_BOOST_BATTLES_PER_STEP = 5;

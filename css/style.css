@@ -515,6 +515,35 @@ body {
 .top-mode-card.online { background: linear-gradient(135deg, #eafce0, #d3f5da); }
 .top-mode-card.story { background: linear-gradient(135deg, #ffe6ee, #ffd0e0); }
 
+/* CPU対戦・オンライン対戦は脇に小さく(主役はストーリーモードの世界地図) */
+.top-mode-list.compact-row { flex-direction: row; gap: 8px; margin-bottom: 14px; }
+.top-mode-card.compact {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.top-mode-card.compact .top-mode-icon { width: 34px; height: 34px; font-size: 1.1rem; }
+.top-mode-card.compact b { font-size: 0.78rem; }
+
+/* ---------- バトルタブに常設した世界地図(ストーリーモード) ---------- */
+.story-main-section { text-align: left; }
+.story-map-wrap { position: relative; }
+.story-start-overlay[hidden] { display: none; }
+.story-start-overlay {
+  position: absolute;
+  inset: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 25, 45, 0.55);
+  backdrop-filter: blur(2px);
+  border-radius: var(--radius-md);
+  z-index: 2;
+}
+
 @keyframes topModeCardIn {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
@@ -901,6 +930,33 @@ body {
 
 .split-row { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
 .split-row input { flex: 1; }
+
+.saved-passphrase-list { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 10px; }
+.passphrase-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  background: #f0f2fa;
+  border: 1px solid #ddd;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+.passphrase-chip .passphrase-delete-btn {
+  font-family: inherit;
+  font-size: 0.7rem;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.08);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
 .hint { font-size: 0.78rem; color: var(--ink-soft); }
 
 /* ---------- ドロワー ---------- */

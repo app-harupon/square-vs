@@ -33,6 +33,9 @@ export const DEFAULT_PROFILE = {
                                    // (ガチャの武将コレクション unlockedCharacters とは完全に別管理)
   lastFormation: null, // 直近で選んだ陣形('attack'|'defense'|null。次回のデフォルト選択に使う)
   devModeUnlocked: false, // 開発者コードを入力済みかどうか(ショップタブの開発者モードパネルの表示制御)
+  hasPlayedStoryMode: false, // 一度でもストーリーの世界地図を生成したか。resetStoryCampaignではクリアしない
+                              // (初回は固定の初期マップ、2周目以降はランダムな地図にするための判定に使う)
+  savedPassphrases: [], // オンライン対戦でよく使う合言葉のお気に入り(ローカル保存のみ。アカウント基盤は使わない)
 };
 
 export function loadProfile() {

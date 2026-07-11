@@ -28,7 +28,7 @@ import {
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
 import {
-  STORY_NATIONS, PLAYER_NATION, findNation, STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter,
+  STORY_NATIONS, PLAYER_NATION, findNation, SELECTABLE_STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter,
   effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold,
   PROLOGUE_TEXT, dialogueSetFor, isRecruitable, getNationForDifficulty, recruitableCharacterFor,
 } from './core/story.js';
@@ -40,6 +40,8 @@ import {
 import { createStoryGame, applyStoryVictory, viceGeneralCountFor, getPlayerTotalTroops, balancedTileTroopCount, CAPITAL_GARRISON_SHARE } from './core/storyBattle.js';
 import {
   generateWorldMap,
+  STARTER_MAP_SEED,
+  RANDOM_MAP_SEEDS,
   getAttackableTiles,
   getAllianceCandidates,
   remainingTileCount,
@@ -198,6 +200,8 @@ const onlineModeList = $('online-mode-list');
 const onlineAutoMatchBtn = $('online-auto-match-btn');
 const onlineCodeInput = $('online-code-input');
 const onlineCodeBtn = $('online-code-btn');
+const onlineCodeSaveBtn = $('online-code-save-btn');
+const savedPassphraseList = $('saved-passphrase-list');
 const onlineCancelBtn = $('online-cancel-btn');
 const onlineErrorText = $('online-error-text');
 const peerLeftModal = $('peer-left-modal');
@@ -206,16 +210,15 @@ const turnorderModal = $('turnorder-modal');
 const turnorderChipA = $('turnorder-a');
 const turnorderChipB = $('turnorder-b');
 const turnorderResult = $('turnorder-result');
-const storyBtn = $('top-story-btn');
 const storyDifficultyModal = $('story-difficulty-modal');
 const storyDifficultyList = $('story-difficulty-list');
 const storyPrologueModal = $('story-prologue-modal');
 const storyPrologueText = $('story-prologue-text');
 const storyPrologueStartBtn = $('story-prologue-start-btn');
-const storyModal = $('story-modal');
 const storyMapGrid = $('story-map-grid');
 const storyMapLegend = $('story-map-legend');
-const storyCloseBtn = $('story-close-btn');
+const storyStartOverlay = $('story-start-overlay');
+const storyStartOverlayBtn = $('story-start-overlay-btn');
 const storyResetBtn = $('story-reset-btn');
 const storyReserveEl = $('story-reserve');
 const storyTileModal = $('story-tile-modal');
@@ -301,6 +304,7 @@ function showScreen(name) {
   if (name === 'menu') {
     cpuModePanel.hidden = true;
     topModeList.hidden = false;
+    renderBattleMap();
   }
 }
 
@@ -415,7 +419,15 @@ function startOnlineGameAsGuest(state) {
 // ---------- ストーリーモード(『黎明の大地』国盗り合戦・世界地図) ----------
 function ensureStoryMap() {
   if (!profile.storyMap) {
-    profile.storyMap = generateWorldMap();
+    if (!profile.hasPlayedStoryMode) {
+      // 初回プレイヤー全員に共通の固定初期マップ
+      profile.storyMap = generateWorldMap(STARTER_MAP_SEED);
+      profile.hasPlayedStoryMode = true;
+    } else {
+      // 2周目以降(リセット・周回のたび)は30種類のシードからランダムに1つ選ぶ
+      const seed = RANDOM_MAP_SEEDS[Math.floor(Math.random() * RANDOM_MAP_SEEDS.length)];
+      profile.storyMap = generateWorldMap(seed);
+    }
     saveProfile(profile);
   } else if (!profile.storyMap.capitals || !profile.storyMap.fortresses) {
     // 王都・砦の仕組みを追加する前に作られた古いセーブデータを補完する
@@ -427,6 +439,17 @@ function ensureStoryMap() {
 
 function storyOwners() {
   return profile.storyMap.owners;
+}
+
+// 指定マスから見て(dx,dy)方向の隣が同じ国(元々の領有国)かどうか。占領状態(owners)ではなく
+// 元々の領有国(tiles)で判定することで、途中で占領されても国境の見た目の形は変わらないようにする
+function isSameNationNeighbor(map, i, dx, dy) {
+  const x = i % map.width;
+  const y = Math.floor(i / map.width);
+  const nx = x + dx;
+  const ny = y + dy;
+  if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) return false;
+  return map.tiles[ny * map.width + nx] === map.tiles[i];
 }
 
 let selectedStoryTileIndex = null;
@@ -443,6 +466,19 @@ function buildStoryMap() {
     const owner = owners[i];
     const tile = document.createElement('button');
     tile.className = 'story-map-tile';
+    if (nationId) {
+      // 同じ国の隣接マス同士は角を四角くし、国境に面した角だけ丸めることで、
+      // マス目のまま一つの滑らかな領土の塊に見えるようにする
+      const up = isSameNationNeighbor(map, i, 0, -1);
+      const down = isSameNationNeighbor(map, i, 0, 1);
+      const left = isSameNationNeighbor(map, i, -1, 0);
+      const right = isSameNationNeighbor(map, i, 1, 0);
+      const round = '11px';
+      const flat = '2px';
+      tile.style.borderRadius =
+        `${up || left ? flat : round} ${up || right ? flat : round} ` +
+        `${down || right ? flat : round} ${down || left ? flat : round}`;
+    }
     if (!nationId) {
       tile.style.background = '#e6ebf1';
     } else if (owner === 'player') {
@@ -478,6 +514,21 @@ function buildStoryMap() {
   const reserve = profile.storyReserve;
   storyReserveEl.textContent = `予備兵力: 歩兵${reserve.infantry || 0} / 弓兵${reserve.archer || 0} / 騎兵${reserve.cavalry || 0}`;
 }
+
+// バトルタブに常設した世界地図まわり(出陣メンバー・ストーリー武将一覧を含む)を丸ごと最新状態に描画する。
+// 難易度未選択の間は地図の上に「冒険を始める」オーバーレイを重ねてタップできないようにしておく
+function renderBattleMap() {
+  if (profile.storyPendingDefense) showCapitalDefensePrompt();
+  buildStoryMap();
+  storyStartOverlay.hidden = !!profile.storyDifficulty;
+  renderLineupEditor();
+  renderStoryCards();
+}
+
+storyStartOverlayBtn.addEventListener('click', () => {
+  buildStoryDifficultyList();
+  storyDifficultyModal.hidden = false;
+});
 
 function openStoryTileModal(tileIndex) {
   const map = profile.storyMap;
@@ -529,7 +580,6 @@ storyTileAttackBtn.addEventListener('click', () => {
   const tileIndex = selectedStoryTileIndex;
   storyTileModal.hidden = true;
   selectedStoryTileIndex = null;
-  storyModal.hidden = true;
   startStoryBattle(tileIndex);
 });
 
@@ -748,7 +798,7 @@ characterSelectCancelBtn.addEventListener('click', () => {
 
 function buildStoryDifficultyList() {
   storyDifficultyList.innerHTML = '';
-  for (const diff of STORY_DIFFICULTIES) {
+  for (const diff of SELECTABLE_STORY_DIFFICULTIES) {
     const card = document.createElement('button');
     card.className = `story-difficulty-card ${diff.id}`;
     card.innerHTML = `<b>${diff.name}</b><span>${diff.desc}</span>`;
@@ -765,32 +815,14 @@ function buildStoryDifficultyList() {
 
 storyPrologueStartBtn.addEventListener('click', () => {
   storyPrologueModal.hidden = true;
-  buildStoryMap();
-  storyModal.hidden = false;
+  renderBattleMap();
 });
 
-storyBtn.addEventListener('click', () => {
-  if (profile.storyPendingDefense) {
-    showCapitalDefensePrompt();
-    return;
-  }
-  if (!profile.storyDifficulty) {
-    buildStoryDifficultyList();
-    storyDifficultyModal.hidden = false;
-    return;
-  }
-  buildStoryMap();
-  storyModal.hidden = false;
-});
-storyCloseBtn.addEventListener('click', () => {
-  storyModal.hidden = true;
-});
 storyResetBtn.addEventListener('click', () => {
   showConfirm('ストーリーモードのキャンペーンをリセットしますか?(領土・仲間になった武将・難易度などが失われ、最初からやり直せます。ジェムやガチャの武将コレクションは失われません)', () => {
     resetStoryCampaign(profile);
     saveProfile(profile);
-    storyModal.hidden = true;
-    showScreen('menu');
+    renderBattleMap();
   });
 });
 
@@ -860,7 +892,43 @@ function resetOnlineModal() {
 onlineBtn.addEventListener('click', () => {
   buildOnlineModeList();
   resetOnlineModal();
+  renderSavedPassphrases();
   onlineModal.hidden = false;
+});
+
+// ---------- よく使う合言葉のお気に入り(ローカル保存のみ。アカウント基盤は使わない) ----------
+const SAVED_PASSPHRASE_MAX = 10;
+
+function renderSavedPassphrases() {
+  savedPassphraseList.innerHTML = '';
+  for (const code of profile.savedPassphrases || []) {
+    const chip = document.createElement('div');
+    chip.className = 'passphrase-chip';
+    chip.dataset.code = code;
+    chip.innerHTML = `<span>🔖 ${code}</span><button type="button" class="passphrase-delete-btn" data-code="${code}">×</button>`;
+    savedPassphraseList.appendChild(chip);
+  }
+}
+
+savedPassphraseList.addEventListener('click', (e) => {
+  const deleteBtn = e.target.closest('.passphrase-delete-btn');
+  if (deleteBtn) {
+    profile.savedPassphrases = (profile.savedPassphrases || []).filter((c) => c !== deleteBtn.dataset.code);
+    saveProfile(profile);
+    renderSavedPassphrases();
+    return;
+  }
+  const chip = e.target.closest('.passphrase-chip');
+  if (chip) joinWithPassphrase(chip.dataset.code);
+});
+
+onlineCodeSaveBtn.addEventListener('click', () => {
+  const code = onlineCodeInput.value.trim();
+  if (!code) return showOnlineError('合言葉を入力してください');
+  const existing = (profile.savedPassphrases || []).filter((c) => c !== code);
+  profile.savedPassphrases = [code, ...existing].slice(0, SAVED_PASSPHRASE_MAX);
+  saveProfile(profile);
+  renderSavedPassphrases();
 });
 
 onlineCloseBtn.addEventListener('click', () => {
@@ -913,13 +981,16 @@ onlineAutoMatchBtn.addEventListener('click', () => {
     .catch(() => showOnlineError('サーバーに接続できませんでした'));
 });
 
-onlineCodeBtn.addEventListener('click', () => {
-  const code = onlineCodeInput.value.trim();
+function joinWithPassphrase(code) {
   if (!code) return showOnlineError('合言葉を入力してください');
   onlineErrorText.hidden = true;
   ensureNetClient()
     .then((client) => client.joinRoom(onlineSelectedMode, code))
     .catch(() => showOnlineError('サーバーに接続できませんでした'));
+}
+
+onlineCodeBtn.addEventListener('click', () => {
+  joinWithPassphrase(onlineCodeInput.value.trim());
 });
 
 peerLeftCloseBtn.addEventListener('click', () => {
@@ -2437,9 +2508,8 @@ function updateHomeTabActive() {
   if (pageName === 'cards') {
     renderFeaturedCharacters();
     renderCollection();
-    renderStoryCards();
-    renderLineupEditor();
   }
+  if (pageName === 'battle') renderBattleMap();
 }
 let homePagerScrollTimer = null;
 homePager.addEventListener('scroll', () => {
@@ -2942,6 +3012,7 @@ devResetStoryBtn.addEventListener('click', () => {
   showConfirm('[開発者モード] ストーリーキャンペーンをリセットしますか?', () => {
     resetStoryCampaign(profile);
     saveProfile(profile);
+    renderBattleMap();
   });
 });
 devResetGachaBtn.addEventListener('click', () => {
@@ -2978,6 +3049,7 @@ devResetAllBtn.addEventListener('click', () => {
     saveProfile(profile);
     updateGemDisplay();
     refreshShopUI();
+    renderBattleMap();
   });
 });
 

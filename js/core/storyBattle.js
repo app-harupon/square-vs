@@ -113,7 +113,10 @@ export function createStoryGame(nation, tileTroopCount, profile = null, landmark
     },
     deployQueue: {
       A: playerSquads,
-      B: generateNationSquadTemplates('B', tileTroopCount, nation.composition, dominantType(nation.composition), profile, viceGeneralCountFor(tileTroopCount)),
+      // 記念すべき初戦(まだ1度も領土戦をしていない)だけは、大将騎兵1隊のみの絶対に勝てる相手にする
+      B: !isDefenseBattle && !(profile?.storyBattlesCompleted > 0)
+        ? [createSquad({ ownerId: 'B', type: UNIT_TYPES.CAVALRY, isGeneral: true, count: generalTroopCountFor(tileTroopCount) })]
+        : generateNationSquadTemplates('B', tileTroopCount, nation.composition, dominantType(nation.composition), profile, viceGeneralCountFor(tileTroopCount)),
     },
     phase: 'deploy',
     currentPlayer: 'A',

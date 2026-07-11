@@ -449,24 +449,47 @@ export class Renderer2D {
       ctx.fill();
       ctx.drawImage(img, pos.x - unitW / 2, feetY - unitH, unitW, unitH);
       ctx.globalAlpha = 1;
-      this._drawCountBadge(ctx, pos.x, feetY - unitH - this.tileSize * 0.06, concealed ? '???' : String(squad.count));
+      this._drawCountBadge(ctx, pos.x, feetY - unitH - this.tileSize * 0.06, concealed ? '???' : String(squad.count), squad);
     }
   }
 
-  // 参考画像のHPバー風: 赤いバーの上に白文字で数値を乗せる
-  _drawCountBadge(ctx, cx, cy, text) {
+  // 兵数バッジ: 背景はチームカラー。大将は金、副将は銀とチームカラーの縞模様にする
+  _drawCountBadge(ctx, cx, cy, text, squad) {
     const w = this.tileSize * 0.92;
     const h = Math.max(9, this.tileSize * 0.22);
+    const teamColor = OWNER_COLORS_HEX[squad?.ownerId]?.[1] || '#888';
     ctx.fillStyle = 'rgba(30,20,20,0.85)';
     roundRectPath(ctx, cx - w / 2 - 1, cy - h / 2 - 1, w + 2, h + 2, h / 2 + 1);
     ctx.fill();
-    ctx.fillStyle = '#e3342f';
+
+    ctx.save();
     roundRectPath(ctx, cx - w / 2, cy - h / 2, w, h, h / 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
+    ctx.clip();
+    ctx.fillStyle = teamColor;
+    ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+    if (squad?.isGeneral || squad?.isViceGeneral) {
+      ctx.fillStyle = squad.isGeneral ? '#ffd93d' : '#c9d3dc';
+      const stripeW = h * 0.5;
+      const step = stripeW * 2;
+      for (let x = cx - w / 2 - h; x < cx + w / 2 + h; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, cy - h / 2 - 2);
+        ctx.lineTo(x + stripeW, cy - h / 2 - 2);
+        ctx.lineTo(x + stripeW - h, cy + h / 2 + 2);
+        ctx.lineTo(x - h, cy + h / 2 + 2);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+
     ctx.font = `bold ${Math.max(9, h * 0.78)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.lineWidth = 2;
+    ctx.strokeText(text, cx, cy + 1);
+    ctx.fillStyle = '#fff';
     ctx.fillText(text, cx, cy + 1);
   }
 

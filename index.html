@@ -61,22 +61,15 @@
             </div>
           </div>
 
-          <!-- 最初の3択(CPU対戦・オンライン対戦・ストーリーモード) -->
-          <div id="top-mode-list" class="top-mode-list">
-            <button id="top-cpu-btn" class="top-mode-card cpu">
+          <!-- CPU対戦・オンライン対戦は脇に小さく配置(主役はストーリーモードの世界地図) -->
+          <div id="top-mode-list" class="top-mode-list compact-row">
+            <button id="top-cpu-btn" class="top-mode-card cpu compact">
               <span class="top-mode-icon">⚔️</span>
               <b>CPU対戦</b>
-              <span>1人でオフライン対戦</span>
             </button>
-            <button id="top-online-btn" class="top-mode-card online">
+            <button id="top-online-btn" class="top-mode-card online compact">
               <span class="top-mode-icon">🌐</span>
               <b>オンライン対戦</b>
-              <span>合言葉で友達と対戦</span>
-            </button>
-            <button id="top-story-btn" class="top-mode-card story">
-              <span class="top-mode-icon">📖</span>
-              <b>ストーリーモード</b>
-              <span>国盗り合戦キャンペーン</span>
             </button>
           </div>
 
@@ -91,16 +84,24 @@
             </label>
           </div>
 
-          <button id="rules-btn" class="btn btn-ghost">遊び方</button>
-          <button id="tutorial-btn" class="btn btn-ghost">🔰 チュートリアル</button>
-          <button id="install-btn" class="btn btn-secondary" hidden>📲 ホーム画面に追加</button>
-        </div>
-      </div>
-
-      <!-- ===== カード ===== -->
-      <div class="home-page" data-page="cards">
-        <div class="home-page-inner">
-          <h2>🎴 カード</h2>
+          <!-- ===== ストーリーモード(黎明の大地・国盗り合戦) ===== -->
+          <div class="cards-section story-main-section">
+            <h3>📖 黎明の大地 - 国盗り合戦</h3>
+            <p class="hint">
+              黎明の国のノアとして、隣接する国を自由に攻めたり、同盟を結んで通行路を確保したりしながら大陸を統一しましょう。
+              🏰王城を落とせばその国の残り領土を総取りできます。🏯前線の砦は守りが堅い要衝なので慎重に。
+              戦えば戦うほど降伏兵を予備兵力として吸収でき、次の戦いに編成できます。
+            </p>
+            <p id="story-reserve" class="hint"></p>
+            <div class="story-map-wrap">
+              <div id="story-map-grid" class="story-map-grid"></div>
+              <div id="story-start-overlay" class="story-start-overlay" hidden>
+                <button id="story-start-overlay-btn" class="btn btn-primary">🚩 冒険を始める</button>
+              </div>
+            </div>
+            <div id="story-map-legend" class="story-map-legend"></div>
+            <button id="story-reset-btn" class="btn btn-danger-ghost">🔄 ストーリーモードをリセット</button>
+          </div>
 
           <div class="cards-section">
             <h3>🎖️ 出陣メンバーを決めておく</h3>
@@ -113,6 +114,17 @@
             <p class="hint">ストーリーモードで大将・副将として使える武将たちです。各国の首都タイルでの勝利によって仲間になります。</p>
             <div id="story-cards-list" class="story-cards-list"></div>
           </div>
+
+          <button id="rules-btn" class="btn btn-ghost">遊び方</button>
+          <button id="tutorial-btn" class="btn btn-ghost">🔰 チュートリアル</button>
+          <button id="install-btn" class="btn btn-secondary" hidden>📲 ホーム画面に追加</button>
+        </div>
+      </div>
+
+      <!-- ===== カード ===== -->
+      <div class="home-page" data-page="cards">
+        <div class="home-page-inner">
+          <h2>🎴 カード</h2>
 
           <div class="cards-section">
             <h3>🗂 ガチャ武将図鑑</h3>
@@ -473,9 +485,11 @@
         <button id="online-auto-match-btn" class="btn btn-primary">🎲 自動マッチング</button>
         <div class="split-row">
           <input id="online-code-input" type="text" maxlength="8" placeholder="合言葉(例: sakura)" />
-          <button id="online-code-btn" class="btn btn-action">🔑 合言葉で対戦</button>
+          <button id="online-code-save-btn" class="btn btn-ghost btn-small" title="この合言葉を保存">💾</button>
         </div>
+        <button id="online-code-btn" class="btn btn-action">🔑 合言葉で対戦</button>
         <p id="online-error-text" class="hint online-error" hidden></p>
+        <div id="saved-passphrase-list" class="saved-passphrase-list"></div>
       </div>
 
       <div id="online-waiting-view" hidden>
@@ -518,25 +532,6 @@
     </div>
   </div>
 
-  <!-- ===== ストーリーモード(黎明の大地・国盗り合戦) ===== -->
-  <div id="story-modal" class="modal-overlay" hidden>
-    <div class="modal-card modal-scroll">
-      <h2>📖 黎明の大地 - 国盗り合戦</h2>
-      <p class="hint">
-        黎明の国のノアとして、隣接する国を自由に攻めたり、同盟を結んで通行路を確保したりしながら大陸を統一しましょう。
-        🏰王城を落とせばその国の残り領土を総取りできます。🏯前線の砦は守りが堅い要衝なので慎重に。
-        戦えば戦うほど降伏兵を予備兵力として吸収でき、次の戦いに編成できます。
-        あなたが目を離している間も他国同士の争いは進行しており、油断すると自分の領土を奪われることもあります。
-      </p>
-      <p id="story-reserve" class="hint"></p>
-      <div id="story-map-grid" class="story-map-grid"></div>
-      <div id="story-map-legend" class="story-map-legend"></div>
-      <div class="panel-actions">
-        <button id="story-reset-btn" class="btn btn-danger-ghost">🔄 キャンペーンをリセット</button>
-        <button id="story-close-btn" class="btn btn-ghost">閉じる</button>
-      </div>
-    </div>
-  </div>
 
   <!-- ===== 国盗り合戦: 出陣メンバー(大将・副将)選択 ===== -->
   <div id="character-select-modal" class="modal-overlay" hidden>

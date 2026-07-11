@@ -6,6 +6,23 @@ export const MAP_WIDTH = 9;
 export const MAP_HEIGHT = 7;
 const TROOPS_PER_TILE = 4000;
 
+// 初回プレイヤー全員に共通の固定初期マップ、2周目以降はこの中からランダムに1つ選ぶ
+export const STARTER_MAP_SEED = 20260710;
+export const RANDOM_MAP_SEEDS = Array.from({ length: 30 }, (_, i) => 100000 + i * 7919);
+
+// 軽量な決定論的PRNG(mulberry32)。同じseedなら常に同じ乱数列を返すため、
+// 地図生成アルゴリズム自体は変えずに「固定の初期マップ」「30通りのランダムマップ」を再現できる
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export function tileCountForTroops(totalTroops) {
   return Math.max(1, Math.ceil(totalTroops / TROOPS_PER_TILE));
 }
@@ -15,7 +32,7 @@ function idx(x, y) {
 }
 
 // 国ごとの陣取り塊(ブロブ)を盤面にランダム生成する。地形生成のforestブロブ生成と同じ考え方。
-function growBlob(tiles, nationId, targetSize) {
+function growBlob(tiles, nationId, targetSize, rng) {
   const empty = [];
   for (let y = 0; y < MAP_HEIGHT; y++) {
     for (let x = 0; x < MAP_WIDTH; x++) {
@@ -23,12 +40,12 @@ function growBlob(tiles, nationId, targetSize) {
     }
   }
   if (!empty.length) return;
-  const [sx, sy] = empty[Math.floor(Math.random() * empty.length)];
+  const [sx, sy] = empty[Math.floor(rng() * empty.length)];
   const frontier = [[sx, sy]];
   const visited = new Set();
   let placed = 0;
   while (frontier.length && placed < targetSize) {
-    const i = Math.floor(Math.random() * frontier.length);
+    const i = Math.floor(rng() * frontier.length);
     const [x, y] = frontier.splice(i, 1)[0];
     const key = `${x},${y}`;
     if (visited.has(key)) continue;
@@ -49,7 +66,7 @@ function growBlob(tiles, nationId, targetSize) {
 
 // プレイヤーの本拠地は、必ずどこかの国と隣接するマスから配置する
 // (孤立したマスに置かれると、隣接国が1つもなく詰んでしまうため)
-function placeAdjacentToExisting(tiles, nationId, targetSize) {
+function placeAdjacentToExisting(tiles, nationId, targetSize, rng) {
   const candidates = [];
   for (let y = 0; y < MAP_HEIGHT; y++) {
     for (let x = 0; x < MAP_WIDTH; x++) {
@@ -63,10 +80,10 @@ function placeAdjacentToExisting(tiles, nationId, targetSize) {
     }
   }
   if (!candidates.length) {
-    growBlob(tiles, nationId, targetSize); // 万一隣接候補がなければ通常のブロブ生成にフォールバック
+    growBlob(tiles, nationId, targetSize, rng); // 万一隣接候補がなければ通常のブロブ生成にフォールバック
     return;
   }
-  const [sx, sy] = candidates[Math.floor(Math.random() * candidates.length)];
+  const [sx, sy] = candidates[Math.floor(rng() * candidates.length)];
   tiles[idx(sx, sy)] = nationId;
   let placed = 1;
   const frontier = [[sx, sy]];
@@ -88,17 +105,19 @@ function placeAdjacentToExisting(tiles, nationId, targetSize) {
   }
 }
 
-// 世界地図を新規生成する(キャンペーン開始時に1回だけ呼び、プロフィールに保存して固定する)
-export function generateWorldMap() {
+// 世界地図を新規生成する(キャンペーン開始時に1回だけ呼び、プロフィールに保存して固定する)。
+// seedを渡すと決定論的に(同じseedなら常に同じ地図に)、省略時は従来通りその場の乱数で生成する
+export function generateWorldMap(seed) {
+  const rng = seed != null ? mulberry32(seed) : Math.random;
   const tiles = new Array(MAP_WIDTH * MAP_HEIGHT).fill(null);
   const others = STORY_NATIONS.map((n) => ({ id: n.id, size: tileCountForTroops(n.totalTroops) }))
     .sort((a, b) => b.size - a.size);
 
-  for (const n of others) growBlob(tiles, n.id, n.size);
+  for (const n of others) growBlob(tiles, n.id, n.size, rng);
   // プレイヤーの本拠地は他国配置が終わった後、必ず隣接するマスに置く
-  placeAdjacentToExisting(tiles, PLAYER_NATION.id, tileCountForTroops(PLAYER_NATION.totalTroops));
+  placeAdjacentToExisting(tiles, PLAYER_NATION.id, tileCountForTroops(PLAYER_NATION.totalTroops), rng);
   // 空白地が残らないよう、余ったマスは隣接する国へ塗り広げて埋める(最初から全マスがどこかの国の領土になる)
-  fillRemainingGaps(tiles);
+  fillRemainingGaps(tiles, rng);
 
   const owners = tiles.map((nationId) => (nationId === PLAYER_NATION.id ? 'player' : nationId));
   const capitals = computeCapitals(tiles);
@@ -190,7 +209,7 @@ export function isFortressTile(map, tileIndex) {
 }
 
 // ブロブ配置後に残った空白マスを、隣接する国の領土で塗り広げて埋め尽くす
-function fillRemainingGaps(tiles) {
+function fillRemainingGaps(tiles, rng) {
   let hasEmpty = tiles.some((t) => !t);
   let safety = 0;
   while (hasEmpty && safety < 100) {
@@ -210,7 +229,7 @@ function fillRemainingGaps(tiles) {
           }
         }
         if (neighborOwners.length) {
-          tiles[i] = neighborOwners[Math.floor(Math.random() * neighborOwners.length)];
+          tiles[i] = neighborOwners[Math.floor(rng() * neighborOwners.length)];
         } else {
           hasEmpty = true;
         }
