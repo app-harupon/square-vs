@@ -1066,6 +1066,7 @@ body {
 }
 .story-tile-header { display: flex; align-items: center; gap: 12px; }
 .story-tile-header h2 { margin: 0; text-align: left; }
+.story-tile-portrait-wrap { position: relative; flex-shrink: 0; }
 .story-tile-portrait {
   width: 56px;
   height: 56px;
@@ -1073,9 +1074,18 @@ body {
   box-shadow: 0 3px 10px rgba(90,90,140,0.25);
   flex-shrink: 0;
 }
+.story-tile-emblem {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+}
 .story-map-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; font-size: 0.75rem; color: var(--ink-soft); }
 .story-map-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .story-map-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.story-map-legend-emblem { width: 16px; height: 16px; flex-shrink: 0; }
 
 /* ---------- 出陣メンバー(大将・副将)選択 ---------- */
 .character-select-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }

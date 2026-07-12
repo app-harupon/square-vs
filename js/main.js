@@ -57,6 +57,7 @@ import { Renderer2D as Renderer } from './ui/render2d.js';
 import { InputController } from './ui/input.js';
 import { NetClient } from './net/client.js';
 import { getPortraitDataUrl } from './ui/portraits.js';
+import { getEmblemDataUrl } from './ui/emblems.js';
 import { unlockAudio, playSfx, setMuted, isMuted } from './audio/sound.js';
 
 const $ = (id) => document.getElementById(id);
@@ -225,6 +226,7 @@ const storyTileModal = $('story-tile-modal');
 const storyTileTitle = $('story-tile-title');
 const storyTileDesc = $('story-tile-desc');
 const storyTilePortrait = $('story-tile-portrait');
+const storyTileEmblem = $('story-tile-emblem');
 const characterSelectModal = $('character-select-modal');
 const characterSelectList = $('character-select-list');
 const charSelectViceRemaining = $('char-select-vice-remaining');
@@ -510,9 +512,9 @@ function buildStoryMap() {
   }
 
   storyMapLegend.innerHTML = `
-    <span><i style="background:${PLAYER_NATION.color}"></i>あなた(黎明)</span>
+    <span><img class="story-map-legend-emblem" src="${getEmblemDataUrl(PLAYER_NATION.id, PLAYER_NATION.color)}" alt="" />あなた(黎明)</span>
     ${STORY_NATIONS.filter((n) => !n.isHiddenBoss || profile.laselUnsealed)
-      .map((n) => `<span><i style="background:${n.color}"></i>${n.name}</span>`)
+      .map((n) => `<span><img class="story-map-legend-emblem" src="${getEmblemDataUrl(n.id, n.color)}" alt="" />${n.name}</span>`)
       .join('')}
     <span>🏰 王城(ここを落とせば総取り)</span>
     <span>🏯 前線の砦</span>
@@ -548,6 +550,7 @@ function openStoryTileModal(tileIndex) {
   const total = totalTileCount(map, nationId);
   storyTileTitle.textContent = `${nation.name}(${nation.monarch})`;
   storyTilePortrait.src = getPortraitDataUrl(nationId);
+  storyTileEmblem.src = getEmblemDataUrl(nationId, nation.color);
   const capitalNote = isCapitalTile(map, tileIndex)
     ? ' 🏰この国の王城です。落とせば残り領土を総取りできます!'
     : isFortressTile(map, tileIndex)
