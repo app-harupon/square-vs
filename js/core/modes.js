@@ -1,15 +1,6 @@
 // ゲームモード設定(盤面サイズ・部隊数だけがモードごとに違う)
 
 export const MODES = {
-  official: {
-    id: 'official',
-    name: '公式ルールモード',
-    desc: '11x11・1陣営7部隊。オンライン対戦の標準ルール。',
-    boardSize: 11,
-    deployDepth: 2,
-    squadCount: 7, // 大将1 + 一般6
-    viceGeneralCount: 0,
-  },
   easy: {
     id: 'easy',
     name: 'お手軽モード',
@@ -19,14 +10,14 @@ export const MODES = {
     squadCount: 3, // 大将1 + 一般2
     viceGeneralCount: 0,
   },
-  normal: {
-    id: 'normal',
-    name: 'ノーマルモード',
-    desc: '15x15・1陣営10部隊+副将1。歯ごたえのある標準戦。',
-    boardSize: 15,
+  official: {
+    id: 'official',
+    name: '公式ルールモード',
+    desc: '11x11・1陣営7部隊。オンライン対戦の標準ルール。',
+    boardSize: 11,
     deployDepth: 2,
-    squadCount: 10, // 大将1 + 一般9
-    viceGeneralCount: 1,
+    squadCount: 7, // 大将1 + 一般6
+    viceGeneralCount: 0,
   },
   large: {
     id: 'large',

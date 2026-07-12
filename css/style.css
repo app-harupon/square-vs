@@ -466,7 +466,6 @@ body {
 .mode-card b { font-size: 1.05rem; }
 .mode-card span { font-size: 0.82rem; color: var(--ink-soft); }
 .mode-card.easy { background: linear-gradient(135deg, #eafce0, #d3f5da); }
-.mode-card.normal { background: linear-gradient(135deg, #e0f0ff, #cfe4ff); }
 .mode-card.large { background: linear-gradient(135deg, #ffe6ee, #ffd0e0); }
 .mode-card.official { background: linear-gradient(135deg, #fff3d6, #ffe4a3); border: 2px solid #ffcf5c; }
 
