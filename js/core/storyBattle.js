@@ -34,13 +34,22 @@ export function viceGeneralCountFor(tileTroopCount) {
   return 0;
 }
 
+// ソフト/イージーでは、CPUの兵数が常にプレイヤーより明確に少なくなるよう上限を切り下げる
+// (通常の誤差クランプだと5戦目以降プレイヤーの90%まで迫ってしまい、易しい難易度の体感と合わなくなるため)
+const WEAKER_CPU_CAP = { soft: 0.6, easy: 0.85 };
+
 // 国盗りの難易度カーブ: 最初の5戦は自軍とほぼ同数(誤差10%以内)、5戦目以降は徐々に緩めて
 // 誤差30%以内に抑える(strength自体=scoreMultiplier/戦術性向/構成比は一切変更しない、兵数だけを調整する)
-export function balancedTileTroopCount(naturalCount, playerTotalTroops, battlesCompleted) {
+export function balancedTileTroopCount(naturalCount, playerTotalTroops, battlesCompleted, difficultyId) {
   const t = Math.min(1, (battlesCompleted || 0) / 5);
   const tolerance = 0.10 + (0.30 - 0.10) * t;
-  const min = playerTotalTroops * (1 - tolerance);
-  const max = playerTotalTroops * (1 + tolerance);
+  let min = playerTotalTroops * (1 - tolerance);
+  let max = playerTotalTroops * (1 + tolerance);
+  const cap = WEAKER_CPU_CAP[difficultyId];
+  if (cap) {
+    max = Math.min(max, playerTotalTroops * cap);
+    min = Math.min(min, max);
+  }
   return Math.round(Math.min(max, Math.max(min, naturalCount)));
 }
 

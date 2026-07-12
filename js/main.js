@@ -606,7 +606,7 @@ function startStoryBattle(tileIndex) {
   const naturalCount = isCapital
     ? Math.round(effectiveNationTroops(nation, profile) * CAPITAL_GARRISON_SHARE * difficulty.scoreMultiplier)
     : Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier);
-  const tileTroopCount = Math.max(1000, balancedTileTroopCount(naturalCount, getPlayerTotalTroops(profile), profile.storyBattlesCompleted));
+  const tileTroopCount = Math.max(1000, balancedTileTroopCount(naturalCount, getPlayerTotalTroops(profile), profile.storyBattlesCompleted, profile.storyDifficulty));
   const landmark = isCapital ? 'castle' : isFortressTile(map, tileIndex) ? 'fortress' : null;
   const roster = storyCharacterRoster();
   openCharacterSelect((generalId, viceIds, formation) => {
@@ -633,7 +633,7 @@ function startCapitalDefenseBattle(tileIndex, attackerNationId) {
   const total = totalTileCount(map, nation.id) || 1;
   const difficulty = findDifficulty(profile.storyDifficulty);
   const naturalCount = Math.round((effectiveNationTroops(nation, profile) / total) * difficulty.scoreMultiplier);
-  const tileTroopCount = Math.max(1000, balancedTileTroopCount(naturalCount, getPlayerTotalTroops(profile), profile.storyBattlesCompleted));
+  const tileTroopCount = Math.max(1000, balancedTileTroopCount(naturalCount, getPlayerTotalTroops(profile), profile.storyBattlesCompleted, profile.storyDifficulty));
   const isNativeCapital = map.tiles[tileIndex] === PLAYER_NATION.id;
   const roster = storyCharacterRoster();
 
