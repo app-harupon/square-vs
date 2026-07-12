@@ -36,7 +36,9 @@ html, body {
 body {
   font-family: 'M PLUS Rounded 1c', 'Yu Gothic', sans-serif;
   color: var(--ink);
-  background: radial-gradient(circle at 20% 0%, var(--bg-2), var(--bg-1) 60%);
+  background:
+    url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNjAiIGhlaWdodD0iMjYwIj4KICA8dGV4dCB4PSIwIiB5PSI3MCIgZm9udC1mYW1pbHk9IidNIFBMVVMgUm91bmRlZCAxYycsICdZdSBHb3RoaWMnLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjMwIiBmb250LXdlaWdodD0iODAwIiBmaWxsPSIjNWE3ZmQwIiBmaWxsLW9wYWNpdHk9IjAuMTYiIHRyYW5zZm9ybT0icm90YXRlKC0xOCA2NSA2MCkiPiYjOTg3NjsgU3F1YXJlIFZTPC90ZXh0PgogIDx0ZXh0IHg9IjEzMCIgeT0iMjAwIiBmb250LWZhbWlseT0iJ00gUExVUyBSb3VuZGVkIDFjJywgJ1l1IEdvdGhpYycsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMzAiIGZvbnQtd2VpZ2h0PSI4MDAiIGZpbGw9IiM1YTdmZDAiIGZpbGwtb3BhY2l0eT0iMC4xNiIgdHJhbnNmb3JtPSJyb3RhdGUoLTE4IDE5NSAxOTApIj4mIzk4NzY7IFNxdWFyZSBWUzwvdGV4dD4KPC9zdmc+Cg==") repeat,
+    radial-gradient(circle at 20% 0%, var(--bg-2), var(--bg-1) 60%);
   min-height: 100vh;
 }
 

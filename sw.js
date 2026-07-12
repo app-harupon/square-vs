@@ -1,4 +1,4 @@
-const CACHE_NAME = 'warchess-cache-v53';
+const CACHE_NAME = 'warchess-cache-v54';
 const ASSETS = [
   './',
   './index.html',
