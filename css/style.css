@@ -813,7 +813,7 @@ body {
 }
 .modal-overlay[hidden] { display: none; }
 .modal-card {
-  background: linear-gradient(160deg, #f3fff6, #e0f3e4);
+  background: linear-gradient(160deg, #d6f5dd, #a8dfb6);
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 50px rgba(30,20,50,0.35);
   padding: 22px;
