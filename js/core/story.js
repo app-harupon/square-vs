@@ -19,8 +19,16 @@ export function findDifficulty(id) {
   return STORY_DIFFICULTIES.find((d) => d.id === id) || STORY_DIFFICULTIES[2];
 }
 
-// 難易度選択画面に出す難易度(ハード/ヘルはUIから外す。データ自体・ハード/ヘル限定コンテンツは残す)
-export const SELECTABLE_STORY_DIFFICULTIES = STORY_DIFFICULTIES.filter((d) => d.id !== 'hard' && d.id !== 'hell');
+// 難易度選択画面に出す難易度。ハードは常にUIから外す(データ自体は残す)。
+// ヘルはprofile.hellModeUnlocked(ノーマル以下の全土制覇で解放)がtrueになるまでは隠しておく
+export function selectableStoryDifficulties(profile) {
+  const base = STORY_DIFFICULTIES.filter((d) => d.id !== 'hard' && d.id !== 'hell');
+  if (profile?.hellModeUnlocked) {
+    const hell = STORY_DIFFICULTIES.find((d) => d.id === 'hell');
+    if (hell) base.push(hell);
+  }
+  return base;
+}
 
 // 領土の戦闘を5回終えるごとに、世界中の国の兵力が10%ずつ強化されていく
 // (静かに待つより、どんどん攻め込んで戦況を動かした方が強い意味は持たせない。世界全体が変化していく演出)
@@ -213,6 +221,19 @@ export const STORY_NATIONS = [
     aiTrait: 'phantom',
     skillName: '幻影の盾', skillDesc: 'この部隊が次に防御する戦闘だけ、受ける損害を30%軽減する', skillEffect: 'ironwall',
   },
+  {
+    id: 'lasel',
+    name: '深淵の軍勢',
+    monarch: 'ラセル',
+    color: '#3a2a4a',
+    size: 'XL',
+    totalTroops: 30000,
+    composition: composition('even', 'high', 'high'),
+    desc: 'ヘルモードの果てに姿を現す、正体不明の軍勢。ラセル・シャーレ・フィルスの3人が率いる。',
+    aiTrait: 'brute_force',
+    skillName: '鬼神の一撃', skillDesc: 'このターンだけ自分の移動力+3、攻撃力3倍になる(1回のみ)', skillEffect: 'demongod',
+    isHiddenBoss: true, // 通常の国配置・勧誘対象・世界シミュレーションから除外するフラグ
+  },
 ];
 
 export function findNation(nationId) {
@@ -304,11 +325,17 @@ export const NATION_DIALOGUE = {
     defeat: 'はは……小国が小国に負けるとはな。恨みはしないさ、次はお前が生き延びる番だ',
     join: '弱小国同士、手を組むのも悪くないだろ。お前になら、賭けてみるさ',
   },
+  lasel: {
+    battleStart: '……ここまで来たか。だが、貴様の旅路はここで終わる。深淵の軍勢が、貴様を迎え撃つ',
+    skillActivate: '鬼神と化した俺の一撃、その身で受けてみるがいい!',
+    taunt: '弱い……あまりに弱い。これが大陸を統べようとする者の力か',
+    defeat: '……俺が、負けた……? ふ、久方ぶりに、心の底から震えたぞ……',
+  },
 };
 
 // ジェネス(廃鉄の国)を除いた8ヶ国は、首都タイルでの勝利によって全員が戦闘参加キャラとして仲間になる。
-// ジェネスも通常は仲間になるが、ハード/ヘル限定で最終の壁(仲間にならない)へ役割反転する。覇牙は常に仲間にならない
-const NEVER_RECRUITABLE_NATION_IDS = ['haga'];
+// ジェネスも通常は仲間になるが、ハード/ヘル限定で最終の壁(仲間にならない)へ役割反転する。覇牙・ラセルは常に仲間にならない
+const NEVER_RECRUITABLE_NATION_IDS = ['haga', 'lasel'];
 
 export function isRecruitable(nationId, difficultyId) {
   if (NEVER_RECRUITABLE_NATION_IDS.includes(nationId)) return false;

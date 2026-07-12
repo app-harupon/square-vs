@@ -72,6 +72,28 @@ function generatePlayerSquadTemplates(ownerId, profile, generalCharacterId, vice
   return list;
 }
 
+// 隠しボス「深淵の軍勢」専用の部隊編成。ラセル(騎兵・大将)/シャーレ(弓兵・副将)/フィルス(歩兵・副将)を
+// 必ず固定で編成する(generateNationSquadTemplatesとは別の専用関数)。残りの兵力は3兵種均等に分配する
+function generateLaselSquadTemplates(totalTroops) {
+  const commandCount = generalTroopCountFor(totalTroops);
+  const lasel = createSquad({ ownerId: 'B', type: UNIT_TYPES.CAVALRY, isGeneral: true, count: commandCount, characterId: 'lasel' });
+  const sharre = createSquad({ ownerId: 'B', type: UNIT_TYPES.ARCHER, isViceGeneral: true, count: commandCount, characterId: 'sharre' });
+  const fils = createSquad({ ownerId: 'B', type: UNIT_TYPES.INFANTRY, isViceGeneral: true, count: commandCount, characterId: 'fils' });
+  const list = [lasel, sharre, fils];
+
+  const reservedForCommand = commandCount * 3;
+  const remainingSteps = Math.max(0, Math.round((totalTroops - reservedForCommand) / INITIAL_SOLDIERS));
+  const types = Object.values(UNIT_TYPES);
+  const counts = { [UNIT_TYPES.INFANTRY]: 0, [UNIT_TYPES.ARCHER]: 0, [UNIT_TYPES.CAVALRY]: 0 };
+  for (let i = 0; i < remainingSteps; i++) {
+    counts[types[i % types.length]] += INITIAL_SOLDIERS;
+  }
+  for (const type of types) {
+    if (counts[type] > 0) list.push(createSquad({ ownerId: 'B', type, isElite: Math.random() < ELITE_CHANCE, count: counts[type] }));
+  }
+  return list;
+}
+
 // 選んだ大将・副将キャラクターの固有スキルカードを手札に加える
 function grantCharacterSkills(hand, generalCharacterId, viceGeneralCharacterIds) {
   const generalChar = findPlayerCharacter(generalCharacterId);
@@ -93,7 +115,14 @@ export function createStoryGame(nation, tileTroopCount, profile = null, landmark
   const playerHand = initialHand(profile?.unlockedCards);
   grantCharacterSkills(playerHand, generalCharacterId, viceGeneralCharacterIds);
   const enemyHand = initialHand();
-  if (nation.skillName) enemyHand.push(makeSkillCard(nation.skillName, nation.skillDesc, nation.skillEffect, 'general'));
+  if (nation.id === 'lasel') {
+    // 隠しボスは3人それぞれの固有スキルを手札に加える(他国は君主1人分のみ)
+    enemyHand.push(makeSkillCard('鬼神の一撃', 'このターンだけ自分の移動力+3、攻撃力3倍になる(1回のみ)', 'demongod', 'general'));
+    enemyHand.push(makeSkillCard('神弓の使い手', '次の射撃だけ、射程・射線を無視してどこでも狙える(1回のみ)', 'divinebow', 'archer'));
+    enemyHand.push(makeSkillCard('堅牢の守り', '次に防御する戦闘だけ、受ける損害を半減する(1回のみ)', 'steadfast', 'infantry'));
+  } else if (nation.skillName) {
+    enemyHand.push(makeSkillCard(nation.skillName, nation.skillDesc, nation.skillEffect, 'general'));
+  }
   const isDefenseBattle = !!options.isDefenseBattle;
   const playerSquads = generatePlayerSquadTemplates('A', profile, generalCharacterId, viceGeneralCharacterIds);
   if (isDefenseBattle) {
@@ -113,10 +142,13 @@ export function createStoryGame(nation, tileTroopCount, profile = null, landmark
     },
     deployQueue: {
       A: playerSquads,
-      // 記念すべき初戦(まだ1度も領土戦をしていない)だけは、大将騎兵1隊のみの絶対に勝てる相手にする
-      B: !isDefenseBattle && !(profile?.storyBattlesCompleted > 0)
-        ? [createSquad({ ownerId: 'B', type: UNIT_TYPES.CAVALRY, isGeneral: true, count: generalTroopCountFor(tileTroopCount) })]
-        : generateNationSquadTemplates('B', tileTroopCount, nation.composition, dominantType(nation.composition), profile, viceGeneralCountFor(tileTroopCount)),
+      // 隠しボス「深淵の軍勢」は専用編成。それ以外で記念すべき初戦(まだ1度も領土戦をしていない)だけは、
+      // 大将騎兵1隊のみの絶対に勝てる相手にする
+      B: nation.id === 'lasel'
+        ? generateLaselSquadTemplates(tileTroopCount)
+        : !isDefenseBattle && !(profile?.storyBattlesCompleted > 0)
+          ? [createSquad({ ownerId: 'B', type: UNIT_TYPES.CAVALRY, isGeneral: true, count: generalTroopCountFor(tileTroopCount) })]
+          : generateNationSquadTemplates('B', tileTroopCount, nation.composition, dominantType(nation.composition), profile, viceGeneralCountFor(tileTroopCount)),
     },
     phase: 'deploy',
     currentPlayer: 'A',

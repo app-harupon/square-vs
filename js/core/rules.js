@@ -250,6 +250,13 @@ export function getMeleeTargets(state, squad) {
 }
 
 export function getArcherTargets(state, squad) {
+  // 神弓の使い手(シャーレ専用・1回のみ): 射程・射線を無視して、生存している敵部隊全てを対象にできる。
+  // computeArcherTargetsと同じ{ target, dist }の形で返し、UI側の消費コードをそのまま使い回せるようにする
+  if (squad.tempAnyTarget) {
+    return state.squads
+      .filter((s) => s.alive && s.ownerId !== squad.ownerId)
+      .map((target) => ({ target, dist: Math.abs(target.x - squad.x) + Math.abs(target.y - squad.y) }));
+  }
   return computeArcherTargets(state.grid, state.size, state.squads, squad);
 }
 
@@ -283,6 +290,13 @@ function applyIronwall(result, targetSquad) {
   return { ...result, defenderCasualties: reduced, defenderRemaining: targetSquad.count - reduced };
 }
 
+// 堅牢の守り(フィルス専用): 防御側が受ける損害を50%軽減する(1回消費)
+function applySteadfast(result, targetSquad) {
+  if (!targetSquad.tempSteadfast) return result;
+  const reduced = Math.round(result.defenderCasualties * 0.5);
+  return { ...result, defenderCasualties: reduced, defenderRemaining: targetSquad.count - reduced };
+}
+
 export function meleeAttack(state, squad, targetSquad, fromTile) {
   const originTerrain = state.grid[squad.y][squad.x].terrain;
   if (squad.x !== fromTile.x || squad.y !== fromTile.y) {
@@ -301,6 +315,7 @@ export function meleeAttack(state, squad, targetSquad, fromTile) {
     defenderFormation: state.formations?.[targetSquad.ownerId],
   });
   result = applyIronwall(result, targetSquad);
+  result = applySteadfast(result, targetSquad);
   if (result.ambushUsed) squad.usedAmbush = true;
   squad.fatigue += 1;
   squad.tempSnipe = false;
@@ -308,6 +323,7 @@ export function meleeAttack(state, squad, targetSquad, fromTile) {
   squad.count = result.attackerRemaining;
   targetSquad.tempShield = false;
   targetSquad.tempIronwall = false;
+  targetSquad.tempSteadfast = false;
 
   const defenderDied = targetSquad.count <= 0;
   const attackerDied = squad.count <= 0;
@@ -345,11 +361,14 @@ export function rangedAttack(state, squad, targetSquad) {
     defenderFormation: state.formations?.[targetSquad.ownerId],
   });
   result = applyIronwall(result, targetSquad);
+  result = applySteadfast(result, targetSquad);
   squad.fatigue += 1;
   squad.tempSnipe = false;
+  squad.tempAnyTarget = false;
   targetSquad.count = result.defenderRemaining;
   targetSquad.tempShield = false;
   targetSquad.tempIronwall = false;
+  targetSquad.tempSteadfast = false;
   const defenderDied = targetSquad.count <= 0;
   if (defenderDied) removeSquad(state, targetSquad);
 
@@ -461,6 +480,20 @@ export function playCard(state, playerId, squad, cardUid) {
       }
       squad.actedThisTurn = true;
       break;
+    case 'steadfast':
+      // 堅牢の守り(フィルス専用): 次に防御する戦闘だけ受ける損害を半減する。ironwallと同じく、この防御準備自体で行動を終える
+      squad.tempSteadfast = true;
+      squad.actedThisTurn = true;
+      break;
+    case 'divinebow':
+      // 神弓の使い手(シャーレ専用): 次の射撃だけ射程・射線を無視できる。snipeと同じく、この後に実際の射撃を行うため行動は終えない
+      squad.tempAnyTarget = true;
+      break;
+    case 'demongod':
+      // 鬼神の一撃(ラセル専用): このターンだけ移動力+3・攻撃力3倍。lightning/chargeと同じく、この後に実際の移動・攻撃を行うため行動は終えない
+      squad.tempMoveBonus = 3;
+      squad.tempAttackMult = 3;
+      break;
     default:
       return false;
   }
@@ -504,6 +537,8 @@ export function endTurn(state) {
       s.tempMoveBonus = 0;
       s.pendingRapid = false;
       s.ambushOverride = false;
+      s.tempAttackMult = 1;
+      s.tempAnyTarget = false;
     }
   }
   for (const s of state.squads) {

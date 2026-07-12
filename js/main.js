@@ -28,7 +28,7 @@ import {
 } from './core/rules.js';
 import { cpuStepTurn } from './core/ai.js';
 import {
-  STORY_NATIONS, PLAYER_NATION, findNation, SELECTABLE_STORY_DIFFICULTIES, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter,
+  STORY_NATIONS, PLAYER_NATION, findNation, selectableStoryDifficulties, findDifficulty, PLAYER_CHARACTERS, findPlayerCharacter,
   effectiveNationTroops, worldBoostFactor, justCrossedWorldBoostThreshold,
   PROLOGUE_TEXT, dialogueSetFor, isRecruitable, getNationForDifficulty, recruitableCharacterFor,
 } from './core/story.js';
@@ -481,6 +481,11 @@ function buildStoryMap() {
     }
     if (!nationId) {
       tile.style.background = '#e6ebf1';
+    } else if (owner === 'sealed') {
+      // 隠しボス「ラセル」の封印された領土。ヘルモード制覇まではロックされた暗いマスとして見せるだけで、
+      // 首都・砦の場所も伏せておく(下のcapital/fortressクラス付与を通らないようにする)
+      tile.style.background = '#1a1220';
+      tile.classList.add('sealed');
     } else if (owner === 'player') {
       tile.style.background = PLAYER_NATION.color;
       tile.classList.add('player');
@@ -491,9 +496,9 @@ function buildStoryMap() {
       if (attackable.has(i)) tile.classList.add('attackable');
       else if (owner !== 'player') tile.classList.add('locked');
     }
-    if (isCapitalTile(map, i) && owner !== 'player') tile.classList.add('capital');
-    if (isFortressTile(map, i) && owner !== 'player') tile.classList.add('fortress');
-    if (nationId && owner !== 'player' && attackable.has(i)) {
+    if (isCapitalTile(map, i) && owner !== 'player' && owner !== 'sealed') tile.classList.add('capital');
+    if (isFortressTile(map, i) && owner !== 'player' && owner !== 'sealed') tile.classList.add('fortress');
+    if (nationId && owner !== 'player' && owner !== 'sealed' && attackable.has(i)) {
       if (isNeutralTile(map, owners, i)) {
         tile.title = '無主化した土地(戦闘なしでそのまま制圧できます)';
         tile.addEventListener('click', () => claimNeutralTile(i));
@@ -506,7 +511,9 @@ function buildStoryMap() {
 
   storyMapLegend.innerHTML = `
     <span><i style="background:${PLAYER_NATION.color}"></i>あなた(黎明)</span>
-    ${STORY_NATIONS.map((n) => `<span><i style="background:${n.color}"></i>${n.name}</span>`).join('')}
+    ${STORY_NATIONS.filter((n) => !n.isHiddenBoss || profile.laselUnsealed)
+      .map((n) => `<span><i style="background:${n.color}"></i>${n.name}</span>`)
+      .join('')}
     <span>🏰 王城(ここを落とせば総取り)</span>
     <span>🏯 前線の砦</span>
   `;
@@ -798,7 +805,7 @@ characterSelectCancelBtn.addEventListener('click', () => {
 
 function buildStoryDifficultyList() {
   storyDifficultyList.innerHTML = '';
-  for (const diff of SELECTABLE_STORY_DIFFICULTIES) {
+  for (const diff of selectableStoryDifficulties(profile)) {
     const card = document.createElement('button');
     card.className = `story-difficulty-card ${diff.id}`;
     card.innerHTML = `<b>${diff.name}</b><span>${diff.desc}</span>`;
@@ -2146,6 +2153,28 @@ function appendNationDefeatDialogue(nation, difficultyId, prof, includeQuotes = 
   return text;
 }
 
+// 全土制覇(キャンペーンクリア)を検知する。ラセルの封印領土(sealed)以外がすべてplayer領有になったら、
+// 通常キャンペーンならヘルモードを解放し、ヘルモード中ならラセルの封印を解く(resolveStoryBattleOutcomeの勝利時のみ呼ぶ)
+function checkCampaignClear() {
+  const map = profile.storyMap;
+  if (!map) return '';
+  const allCleared = map.owners.every((o) => o === 'player' || o === 'sealed');
+  if (!allCleared) return '';
+  if (profile.storyDifficulty === 'hell') {
+    if (profile.laselUnsealed) return '';
+    for (let i = 0; i < map.owners.length; i++) {
+      if (map.tiles[i] === 'lasel' && map.owners[i] === 'sealed') map.owners[i] = 'lasel';
+    }
+    profile.laselUnsealed = true;
+    return ' 😈大陸を統一した、その刹那——北の空を切り裂き、封じられていた漆黒の軍勢が姿を現した……隠しボス「ラセル」が解放されました!';
+  }
+  if (!profile.hellModeUnlocked) {
+    profile.hellModeUnlocked = true;
+    return ' 🎉大陸を統一しました!新たな難易度「ヘル」が解放されました。';
+  }
+  return '';
+}
+
 function resolveStoryBattleOutcome(finishedGame, won) {
   const map = profile.storyMap;
   const owners = map.owners;
@@ -2194,6 +2223,7 @@ function resolveStoryBattleOutcome(finishedGame, won) {
     if (capturedCapital) {
       text += appendNationDefeatDialogue(nation, profile.storyDifficulty, profile);
     }
+    text += checkCampaignClear();
   }
 
   // 領土の戦闘を5回終えるごとに世界中の国の兵力が10%強化される(勝敗を問わずカウントする)

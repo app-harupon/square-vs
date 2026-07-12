@@ -36,6 +36,8 @@ export const DEFAULT_PROFILE = {
   hasPlayedStoryMode: false, // 一度でもストーリーの世界地図を生成したか。resetStoryCampaignではクリアしない
                               // (初回は固定の初期マップ、2周目以降はランダムな地図にするための判定に使う)
   savedPassphrases: [], // オンライン対戦でよく使う合言葉のお気に入り(ローカル保存のみ。アカウント基盤は使わない)
+  hellModeUnlocked: false, // ノーマル以下のキャンペーンを全土制覇するとtrueになる(resetStoryCampaignではクリアしない)
+  laselUnsealed: false, // ヘルモードを全土制覇し、隠しボス「ラセル」の封印を解いたか(resetStoryCampaignではクリアしない)
 };
 
 export function loadProfile() {

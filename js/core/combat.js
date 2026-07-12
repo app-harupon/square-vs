@@ -2,6 +2,9 @@ import { TERRAIN, ELEVATION, TERRAIN_DEFENSE } from './terrain.js';
 import { advantageBonus, GENERAL_COMBAT_BONUS, VICE_GENERAL_COMBAT_BONUS, FORMATION_RANK_BONUS } from './units.js';
 import { squadAt, orthogonalNeighbors } from './board.js';
 
+// 隠しボス「深淵の軍勢」の固有パッシブ: 自分の兵種と一致する部隊を率いている時、常時戦闘力1.5倍
+const LEADER_MATCH_TYPE = { lasel: 'cavalry', sharre: 'archer', fils: 'infantry' };
+
 /**
  * 1回の戦闘を解決する純粋関数。副作用なし(呼び出し側が結果を反映する)。
  * originTerrain: 攻撃側が「行動開始時に立っていたマス」の地形(奇襲判定用)
@@ -120,6 +123,25 @@ export function calcCombat({ attacker, defender, grid, size, squads, originTerra
     const before = attackerPower;
     attackerPower *= 1.5;
     attackerLog.push({ label: '挟み込み x1.5', value: Math.round((attackerPower - before) * 10) / 10 });
+  }
+
+  // 固有パッシブ: 自分の兵種と一致する部隊を率いている時、常時1.5倍(ラセル/シャーレ/フィルス)
+  if (LEADER_MATCH_TYPE[attacker.characterId] === attackerBaseType) {
+    const before = attackerPower;
+    attackerPower *= 1.5;
+    attackerLog.push({ label: '統率(1.5倍)', value: Math.round((attackerPower - before) * 10) / 10 });
+  }
+  if (LEADER_MATCH_TYPE[defender.characterId] === defenderBaseType) {
+    const before = defenderPower;
+    defenderPower *= 1.5;
+    defenderLog.push({ label: '統率(1.5倍)', value: Math.round((defenderPower - before) * 10) / 10 });
+  }
+
+  // 鬼神の一撃(ラセル専用・1ターンのみ・自分だけ): このターンの攻撃力を3倍にする
+  if (attacker.tempAttackMult && attacker.tempAttackMult !== 1) {
+    const before = attackerPower;
+    attackerPower *= attacker.tempAttackMult;
+    attackerLog.push({ label: '鬼神の一撃(3倍)', value: Math.round((attackerPower - before) * 10) / 10 });
   }
 
   attackerPower = Math.max(0, attackerPower);

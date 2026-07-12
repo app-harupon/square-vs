@@ -110,16 +110,30 @@ function placeAdjacentToExisting(tiles, nationId, targetSize, rng) {
 export function generateWorldMap(seed) {
   const rng = seed != null ? mulberry32(seed) : Math.random;
   const tiles = new Array(MAP_WIDTH * MAP_HEIGHT).fill(null);
-  const others = STORY_NATIONS.map((n) => ({ id: n.id, size: tileCountForTroops(n.totalTroops) }))
+
+  // 隠しボス国(ラセル)は通常の陣取りには参加させず、地図最上段(y=0)に固定で予約しておく。
+  // ヘルモード制覇まではownersを'sealed'にして封印しておく(下記)
+  const hiddenBoss = STORY_NATIONS.find((n) => n.isHiddenBoss);
+  if (hiddenBoss) {
+    for (let x = 0; x < MAP_WIDTH; x++) tiles[idx(x, 0)] = hiddenBoss.id;
+  }
+
+  const others = STORY_NATIONS.filter((n) => !n.isHiddenBoss)
+    .map((n) => ({ id: n.id, size: tileCountForTroops(n.totalTroops) }))
     .sort((a, b) => b.size - a.size);
 
   for (const n of others) growBlob(tiles, n.id, n.size, rng);
   // プレイヤーの本拠地は他国配置が終わった後、必ず隣接するマスに置く
   placeAdjacentToExisting(tiles, PLAYER_NATION.id, tileCountForTroops(PLAYER_NATION.totalTroops), rng);
   // 空白地が残らないよう、余ったマスは隣接する国へ塗り広げて埋める(最初から全マスがどこかの国の領土になる)
-  fillRemainingGaps(tiles, rng);
+  // 隠しボス国の領土だけは、これ以上広がらないよう塗り広げの対象から除外する
+  fillRemainingGaps(tiles, rng, hiddenBoss?.id);
 
-  const owners = tiles.map((nationId) => (nationId === PLAYER_NATION.id ? 'player' : nationId));
+  const owners = tiles.map((nationId) => {
+    if (nationId === PLAYER_NATION.id) return 'player';
+    if (hiddenBoss && nationId === hiddenBoss.id) return 'sealed';
+    return nationId;
+  });
   const capitals = computeCapitals(tiles);
   const fortresses = computeFortresses(tiles, capitals);
   return { width: MAP_WIDTH, height: MAP_HEIGHT, tiles, owners, capitals, fortresses };
@@ -208,8 +222,9 @@ export function isFortressTile(map, tileIndex) {
   return !!nationId && map.fortresses?.[nationId] === tileIndex;
 }
 
-// ブロブ配置後に残った空白マスを、隣接する国の領土で塗り広げて埋め尽くす
-function fillRemainingGaps(tiles, rng) {
+// ブロブ配置後に残った空白マスを、隣接する国の領土で塗り広げて埋め尽くす。
+// excludeIdを渡すと、その国(隠しボスの予約領土)はこれ以上広がらないよう塗り広げの候補から除外する
+function fillRemainingGaps(tiles, rng, excludeId) {
   let hasEmpty = tiles.some((t) => !t);
   let safety = 0;
   while (hasEmpty && safety < 100) {
@@ -225,7 +240,8 @@ function fillRemainingGaps(tiles, rng) {
           const nx = x + dx;
           const ny = y + dy;
           if (nx >= 0 && ny >= 0 && nx < MAP_WIDTH && ny < MAP_HEIGHT && snapshot[idx(nx, ny)]) {
-            neighborOwners.push(snapshot[idx(nx, ny)]);
+            const nOwner = snapshot[idx(nx, ny)];
+            if (!excludeId || nOwner !== excludeId) neighborOwners.push(nOwner);
           }
         }
         if (neighborOwners.length) {
@@ -236,6 +252,9 @@ function fillRemainingGaps(tiles, rng) {
       }
     }
   }
+  // 稀に「隠しボス国の予約領土にしか隣接していない」空白マスが残るケースのための最終フォールバック。
+  // 除外条件なしで通常通り埋め、無主状態のマスが残ってcomputeCapitals等が壊れるのを防ぐ
+  if (excludeId && tiles.some((t) => !t)) fillRemainingGaps(tiles, rng, null);
 }
 
 function neighborsOf(i) {
@@ -269,6 +288,11 @@ export function getAttackableTiles(map, owners, alliances) {
     for (const n of neighborsOf(i)) {
       if (visited.has(n)) continue;
       const ownerNation = owners[n];
+      if (ownerNation === 'sealed') {
+        // 封印中の隠しボス領土は、攻撃対象にも通行経路にもならない
+        visited.add(n);
+        continue;
+      }
       if (ownerNation === 'player' || (ownerNation && alliances.includes(ownerNation))) {
         // 自国・同盟国の領土は素通りして、その先の探索を続ける
         visited.add(n);
@@ -323,7 +347,7 @@ export function simulateRivalIncursions(map, owners, alliances, nationLookup, bo
   for (const tileIdx of playerTiles) {
     for (const n of neighborsOf(tileIdx)) {
       const attackerNation = owners[n];
-      if (!attackerNation || attackerNation === 'player' || alliances.includes(attackerNation)) continue;
+      if (!attackerNation || attackerNation === 'player' || attackerNation === 'sealed' || alliances.includes(attackerNation)) continue;
       const nation = nationLookup(attackerNation);
       if (!nation) continue;
       // 総兵力が大きい国ほど侵攻してきやすい(あくまで簡易な確率判定)。世界情勢の強化分も加味する
@@ -345,7 +369,7 @@ export function simulateGreatPowerDynamics(map, owners, worldEvent) {
 
   const strength = {};
   for (const o of owners) {
-    if (o && o !== 'player') strength[o] = (strength[o] || 0) + 1;
+    if (o && o !== 'player' && o !== 'sealed') strength[o] = (strength[o] || 0) + 1;
   }
   const ranked = Object.keys(strength).sort((a, b) => strength[b] - strength[a]);
   if (ranked.length < 2) return null;

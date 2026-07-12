@@ -12,7 +12,7 @@ function nextId() {
   return `sq${uidCounter++}`;
 }
 
-export function createSquad({ ownerId, type, isGeneral = false, isViceGeneral = false, isElite = false, x = -1, y = -1, count = INITIAL_SOLDIERS }) {
+export function createSquad({ ownerId, type, isGeneral = false, isViceGeneral = false, isElite = false, x = -1, y = -1, count = INITIAL_SOLDIERS, characterId = null }) {
   const baseStats = UNIT_STATS[type];
   const rankBonus = (isGeneral ? GENERAL_RANK_BONUS : isViceGeneral ? VICE_GENERAL_RANK_BONUS : 0) + (isElite ? ELITE_RANK_BONUS : 0);
   const stats = rankBonus ? { ...baseStats, rank: baseStats.rank + rankBonus } : { ...baseStats };
@@ -40,6 +40,10 @@ export function createSquad({ ownerId, type, isGeneral = false, isViceGeneral = 
     tempMoveBonus: 0,
     rapidAvailable: false,
     isEliteGeneral: false,
+    characterId, // 固有パッシブ・専用スキルを持つキャラクター(ラセル/シャーレ/フィルス等)を率いているかどうか
+    tempAttackMult: 1, // 鬼神の一撃など、このターンだけ攻撃力を乗算するための係数(既定は1=無効)
+    tempSteadfast: false, // 堅牢の守り: 次に防御する戦闘だけ受ける損害を半減する
+    tempAnyTarget: false, // 神弓の使い手: 次の射撃だけ射程・射線を無視してどこでも狙える
   };
 }
 
