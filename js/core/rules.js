@@ -420,6 +420,10 @@ export function mergeSquads(state, squadA, squadB) {
   if (!canMerge(squadA, squadB)) return false;
   if (!isAdjacent(squadA.x, squadA.y, squadB.x, squadB.y, squadA.type === UNIT_TYPES.CAVALRY)) return false;
   squadA.count += squadB.count;
+  // 討ち取り後の進軍(meleeAttackのdefenderDied時)と同じく、統合先のマスへ移動する。
+  // マスも1つに統合されたように見せることで、統合後にどちらのマスが残るか分かりやすくする
+  squadA.x = squadB.x;
+  squadA.y = squadB.y;
   removeSquad(state, squadB);
   squadA.actedThisTurn = true;
   state.log.push(`${squadLabel(squadA)}が統合(計${squadA.count}人)`);

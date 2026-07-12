@@ -350,11 +350,12 @@ export class Renderer2D {
     ctx.fill();
   }
 
-  // ストーリーモードで、この合戦が王城/砦マスのものなら敵陣(B軍の最奥列)に建物アイコンを描く
+  // ストーリーモードで、この合戦が王城/砦マスのものなら、その建物を守っている側の陣地に描く。
+  // 通常の攻城戦は敵陣(B軍の最奥列)、拠点防衛戦は自陣(A軍の最奥列、盤面・配置ゾーンは反転しないため常にy=0)
   _drawLandmark(ctx, state) {
     const size = state.size;
     const gx = Math.floor((size - 1) / 2);
-    const gy = size - 1;
+    const gy = state.isDefenseBattle ? 0 : size - 1;
     const pos = this.boardPos(gx, gy);
     const glyph = state.landmark === 'castle' ? '🏯' : '🛖';
     const fontSize = this.tileSize * (state.landmark === 'castle' ? 1.3 : 1.0);

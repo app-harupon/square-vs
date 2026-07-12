@@ -2537,7 +2537,7 @@ for (const btn of homeTabBtns) {
 openCollectionBtn.addEventListener('click', () => scrollHomePagerTo('cards'));
 
 // ---------- 武将図鑑(獲得したカードの一覧・並べ替え・絞り込み) ----------
-const ALL_NATIONS_FOR_FILTER = [PLAYER_NATION, ...STORY_NATIONS];
+const ALL_NATIONS_FOR_FILTER = [PLAYER_NATION, ...STORY_NATIONS.filter((n) => !n.isHiddenBoss)];
 for (const n of ALL_NATIONS_FOR_FILTER) {
   const opt = document.createElement('option');
   opt.value = n.id;
@@ -2606,7 +2606,7 @@ lineupEditorList.addEventListener('click', (e) => {
 });
 
 // ---------- ストーリー武将カード(常設4人+首都陥落で仲間になる8ヶ国) ----------
-const STORY_RECRUITABLE_NATION_IDS = STORY_NATIONS.filter((n) => n.id !== 'haga').map((n) => n.id);
+const STORY_RECRUITABLE_NATION_IDS = STORY_NATIONS.filter((n) => n.id !== 'haga' && !n.isHiddenBoss).map((n) => n.id);
 function renderStoryCards() {
   storyCardsList.innerHTML = '';
   for (const char of PLAYER_CHARACTERS) {

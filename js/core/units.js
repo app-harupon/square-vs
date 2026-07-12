@@ -8,7 +8,7 @@ export const UNIT_TYPES = {
 
 export const UNIT_STATS = {
   [UNIT_TYPES.INFANTRY]: { rank: 5, move: 3, range: 1, label: '歩兵', icon: '🛡️' },
-  [UNIT_TYPES.ARCHER]: { rank: 6, move: 2, range: 6, label: '弓兵', icon: '🏹' },
+  [UNIT_TYPES.ARCHER]: { rank: 6, move: 2, range: 5, label: '弓兵', icon: '🏹' },
   [UNIT_TYPES.CAVALRY]: { rank: 7, move: 4, range: 1, label: '騎兵', icon: '🐎' },
 };
 
