@@ -143,6 +143,8 @@ const homePager = $('home-pager');
 const homeTabBtns = [...document.querySelectorAll('.home-tab-btn')];
 const storyCardsList = $('story-cards-list');
 const lineupEditorList = $('lineup-editor-list');
+const cpuLineupEditorList = $('cpu-lineup-editor-list');
+const cpuLineupEmptyHint = $('cpu-lineup-empty-hint');
 const characterGachaBtn = $('character-gacha-btn');
 const characterGacha10Btn = $('character-gacha10-btn');
 const characterGachaFirstHint = $('character-gacha-first-hint');
@@ -2423,6 +2425,7 @@ function attachLongPress(container, selector, onLongPress, ms = 450) {
   container.addEventListener('pointerdown', (e) => {
     const target = e.target.closest(selector);
     if (!target) return;
+    if (e.target.closest('button')) return; // カード内のボタン(役割選択など)操作とは競合させない
     startX = e.clientX;
     startY = e.clientY;
     clear();
@@ -2464,6 +2467,18 @@ attachLongPress(collectionList, '.char-tile', (tile) => {
 });
 attachLongPress(collectionFeaturedList, '.char-tile', (tile) => {
   const char = findCharacterCard(tile.dataset.charId);
+  if (char) showCharacterDetail(char);
+});
+attachLongPress(lineupEditorList, '.character-card', (card) => {
+  const char = findCharacterCard(card.dataset.charId);
+  if (char) showCharacterDetail(char);
+});
+attachLongPress(cpuLineupEditorList, '.character-card', (card) => {
+  const char = findCharacterCard(card.dataset.charId);
+  if (char) showCharacterDetail(char);
+});
+attachLongPress(storyCardsList, '.character-card', (card) => {
+  const char = findCharacterCard(card.dataset.charId);
   if (char) showCharacterDetail(char);
 });
 
@@ -2520,10 +2535,17 @@ function updateHomeTabActive() {
   for (const btn of homeTabBtns) btn.classList.toggle('active', btn.dataset.page === pageName);
   if (pageName === 'shop' || pageName === 'gacha') refreshShopUI();
   if (pageName === 'cards') {
+    renderCpuLineupEditor();
     renderFeaturedCharacters();
     renderCollection();
   }
-  if (pageName === 'battle') renderBattleMap();
+  if (pageName === 'battle') {
+    // CPU対戦のモード選択カルーセルを開いたまま他のタブへ移動すると、バトルタブに戻った時に
+    // CPU対戦・オンライン対戦のボタンが隠れたままになってしまうため、タブ復帰時は常に閉じておく
+    cpuModePanel.hidden = true;
+    topModeList.hidden = false;
+    renderBattleMap();
+  }
 }
 let homePagerScrollTimer = null;
 homePager.addEventListener('scroll', () => {
@@ -2571,6 +2593,7 @@ function renderLineupEditor() {
     const isVice = vice.has(char.id);
     const card = document.createElement('div');
     card.className = 'character-card' + (isGeneral || isVice ? ' selected' : '');
+    card.dataset.charId = char.id;
     card.innerHTML = `
       <img src="${getPortraitDataUrl(char.id)}" alt="" />
       <div class="character-info">
@@ -2605,6 +2628,66 @@ lineupEditorList.addEventListener('click', (e) => {
   renderLineupEditor();
 });
 
+// ---------- 通常CPU対戦/オンライン対戦「カードあり」用の出陣メンバー編集(カード欄) ----------
+// ストーリーモードの出陣メンバーとは別管理(cpuLastGeneral/cpuLastViceGenerals)。
+// ロースターはガチャで仲間にした武将(profile.unlockedCharacters)のみ
+function renderCpuLineupEditor() {
+  const roster = CHARACTER_CARDS.filter((c) => profile.unlockedCharacters.includes(c.id));
+  cpuLineupEmptyHint.hidden = roster.length > 0;
+  if (roster.length === 0) {
+    cpuLineupEditorList.innerHTML = '';
+    return;
+  }
+  const general = roster.find((c) => c.id === profile.cpuLastGeneral)?.id || roster[0]?.id || null;
+  const vice = new Set(
+    (profile.cpuLastViceGenerals || [])
+      .filter((id) => id !== general && roster.some((c) => c.id === id))
+      .slice(0, LINEUP_VICE_LIMIT)
+  );
+  profile.cpuLastGeneral = general;
+  profile.cpuLastViceGenerals = [...vice];
+
+  cpuLineupEditorList.innerHTML = '';
+  for (const char of roster) {
+    const isGeneral = general === char.id;
+    const isVice = vice.has(char.id);
+    const card = document.createElement('div');
+    card.className = 'character-card' + (isGeneral || isVice ? ' selected' : '');
+    card.dataset.charId = char.id;
+    card.innerHTML = `
+      <img src="${getPortraitDataUrl(char.id)}" alt="" />
+      <div class="character-info">
+        <div class="character-name">${char.name} <span class="hint">(${UNIT_STATS[char.type].label})</span></div>
+        <div class="character-title">${char.title}</div>
+      </div>
+      <div class="character-role-buttons">
+        <button type="button" class="role-btn general${isGeneral ? ' active' : ''}" data-role="general" data-id="${char.id}">👑大将</button>
+        <button type="button" class="role-btn vice${isVice ? ' active' : ''}" data-role="vice" data-id="${char.id}"${!isVice && vice.size >= LINEUP_VICE_LIMIT ? ' disabled' : ''}>🎖️副将</button>
+      </div>
+    `;
+    cpuLineupEditorList.appendChild(card);
+  }
+}
+
+cpuLineupEditorList.addEventListener('click', (e) => {
+  const btn = e.target.closest('.role-btn');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const vice = new Set(profile.cpuLastViceGenerals || []);
+  if (btn.dataset.role === 'general') {
+    if (profile.cpuLastGeneral === id) return;
+    profile.cpuLastGeneral = id;
+    vice.delete(id);
+  } else {
+    if (id === profile.cpuLastGeneral) return;
+    if (vice.has(id)) vice.delete(id);
+    else if (vice.size < LINEUP_VICE_LIMIT) vice.add(id);
+  }
+  profile.cpuLastViceGenerals = [...vice];
+  saveProfile(profile);
+  renderCpuLineupEditor();
+});
+
 // ---------- ストーリー武将カード(常設4人+首都陥落で仲間になる8ヶ国) ----------
 const STORY_RECRUITABLE_NATION_IDS = STORY_NATIONS.filter((n) => n.id !== 'haga' && !n.isHiddenBoss).map((n) => n.id);
 function renderStoryCards() {
@@ -2623,6 +2706,7 @@ function renderStoryCards() {
 function buildStoryCharacterCard(char, color, unlocked) {
   const card = document.createElement('div');
   card.className = 'character-card story-nation-card' + (unlocked ? '' : ' locked-card');
+  card.dataset.charId = char.id;
   card.style.setProperty('--nation-color', color || '#ddd');
   card.innerHTML = `
     <img src="${getPortraitDataUrl(char.id)}" alt="" />
