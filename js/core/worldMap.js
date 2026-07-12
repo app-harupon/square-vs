@@ -269,11 +269,9 @@ function neighborsOf(i) {
   return result;
 }
 
-// 現在プレイヤーが領有しているマスから、同盟国の領土を素通りしつつ辿り着ける「国境」の一覧。
-// 同盟国の領土は通行自由(素通り)として扱うため、隣接国が1カ国しかない状態で同盟を結んでも、
-// その先にある別の国へちゃんと攻め込めるようになる(そこで詰んでしまうのを防ぐ)。
+// 現在プレイヤーが領有しているマスに隣接する「国境」の一覧(=次に攻められるマス)。
 // (無主化(中立)したマスも、たどり着ければ無血で取り込める対象として含める)
-export function getAttackableTiles(map, owners, alliances) {
+export function getAttackableTiles(map, owners) {
   const attackable = new Set();
   const visited = new Set();
   const queue = [];
@@ -293,11 +291,11 @@ export function getAttackableTiles(map, owners, alliances) {
         visited.add(n);
         continue;
       }
-      if (ownerNation === 'player' || (ownerNation && alliances.includes(ownerNation))) {
-        // 自国・同盟国の領土は素通りして、その先の探索を続ける
+      if (ownerNation === 'player') {
+        // 自国の領土は素通りして、その先の探索を続ける
         visited.add(n);
         queue.push(n);
-      } else if (ownerNation && !alliances.includes(ownerNation)) {
+      } else if (ownerNation) {
         attackable.add(n);
         visited.add(n);
       } else if (ownerNation === null && map.tiles[n]) {
@@ -314,15 +312,6 @@ export function isNeutralTile(map, owners, tileIndex) {
   return owners[tileIndex] === null && !!map.tiles[tileIndex];
 }
 
-// 同盟を結べる(まだ未制圧・未同盟で、プレイヤー領土に隣接する)国の一覧
-export function getAllianceCandidates(map, owners, alliances) {
-  const candidates = new Set();
-  for (const tileIdx of getAttackableTiles(map, owners, alliances)) {
-    if (owners[tileIdx]) candidates.add(owners[tileIdx]);
-  }
-  return candidates;
-}
-
 // 各国が現在まだ保持しているマス数(=残り駐留軍の数)
 export function remainingTileCount(map, owners, nationId) {
   let count = 0;
@@ -336,9 +325,9 @@ export function totalTileCount(map, nationId) {
   return map.tiles.filter((t) => t === nationId).length;
 }
 
-// 背景シミュレーション: プレイヤーが1戦する度に、隣接する非同盟国がプレイヤー領土を
+// 背景シミュレーション: プレイヤーが1戦する度に、隣接する国がプレイヤー領土を
 // 奪い返しにくる可能性を判定する(簡易な確率計算のみで、実際の戦術戦闘は行わない)
-export function simulateRivalIncursions(map, owners, alliances, nationLookup, boostFactor = 1) {
+export function simulateRivalIncursions(map, owners, nationLookup, boostFactor = 1) {
   const capturedTiles = [];
   const playerTiles = [];
   for (let i = 0; i < owners.length; i++) {
@@ -347,7 +336,7 @@ export function simulateRivalIncursions(map, owners, alliances, nationLookup, bo
   for (const tileIdx of playerTiles) {
     for (const n of neighborsOf(tileIdx)) {
       const attackerNation = owners[n];
-      if (!attackerNation || attackerNation === 'player' || attackerNation === 'sealed' || alliances.includes(attackerNation)) continue;
+      if (!attackerNation || attackerNation === 'player' || attackerNation === 'sealed') continue;
       const nation = nationLookup(attackerNation);
       if (!nation) continue;
       // 総兵力が大きい国ほど侵攻してきやすい(あくまで簡易な確率判定)。世界情勢の強化分も加味する

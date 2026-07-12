@@ -43,7 +43,6 @@ import {
   STARTER_MAP_SEED,
   RANDOM_MAP_SEEDS,
   getAttackableTiles,
-  getAllianceCandidates,
   remainingTileCount,
   totalTileCount,
   simulateRivalIncursions,
@@ -235,7 +234,6 @@ const characterSelectCancelBtn = $('character-select-cancel-btn');
 const formationAttackBtn = $('formation-attack-btn');
 const formationDefenseBtn = $('formation-defense-btn');
 const storyTileAttackBtn = $('story-tile-attack-btn');
-const storyTileAllyBtn = $('story-tile-ally-btn');
 const storyTileCancelBtn = $('story-tile-cancel-btn');
 const capitalDefenseModal = $('capital-defense-modal');
 const capitalDefenseTitle = $('capital-defense-title');
@@ -459,8 +457,7 @@ let selectedStoryTileIndex = null;
 function buildStoryMap() {
   const map = ensureStoryMap();
   const owners = storyOwners();
-  const alliances = profile.storyAlliances;
-  const attackable = getAttackableTiles(map, owners, alliances);
+  const attackable = getAttackableTiles(map, owners);
 
   storyMapGrid.innerHTML = '';
   for (let i = 0; i < map.tiles.length; i++) {
@@ -494,7 +491,6 @@ function buildStoryMap() {
     } else {
       const nation = findNation(nationId);
       tile.style.background = nation?.color || '#999';
-      if (alliances.includes(nationId)) tile.classList.add('allied');
       if (attackable.has(i)) tile.classList.add('attackable');
       else if (owner !== 'player') tile.classList.add('locked');
     }
@@ -557,8 +553,6 @@ function openStoryTileModal(tileIndex) {
       ? ' 🏯この国の前線の砦です。守りが堅い要衝です。'
       : '';
   storyTileDesc.textContent = `${nation.desc} 残り領土 ${remaining}/${total}${capitalNote}`;
-  const alreadyAllied = profile.storyAlliances.includes(nationId);
-  storyTileAllyBtn.hidden = alreadyAllied;
   storyTileModal.hidden = false;
 }
 
@@ -572,18 +566,6 @@ function claimNeutralTile(tileIndex) {
 storyTileCancelBtn.addEventListener('click', () => {
   storyTileModal.hidden = true;
   selectedStoryTileIndex = null;
-});
-
-storyTileAllyBtn.addEventListener('click', () => {
-  const map = profile.storyMap;
-  const nationId = map.tiles[selectedStoryTileIndex];
-  if (nationId && !profile.storyAlliances.includes(nationId)) {
-    profile.storyAlliances.push(nationId);
-    saveProfile(profile);
-  }
-  storyTileModal.hidden = true;
-  selectedStoryTileIndex = null;
-  buildStoryMap();
 });
 
 storyTileAttackBtn.addEventListener('click', () => {
@@ -603,7 +585,6 @@ function storyCharacterRoster() {
 // ジェム・ガチャ・武将図鑑・通常CPU対戦の設定など、ストーリー以外のプロフィールには一切触れない
 function resetStoryCampaign(prof) {
   prof.storyMap = null;
-  prof.storyAlliances = [];
   prof.storyDifficulty = null;
   prof.storyReserve = { infantry: 0, archer: 0, cavalry: 0 };
   prof.storyBattlesCompleted = 0;
@@ -2237,7 +2218,7 @@ function resolveStoryBattleOutcome(finishedGame, won) {
     playSfx('capital');
   }
 
-  const incursions = simulateRivalIncursions(map, owners, profile.storyAlliances, findNation, worldBoostFactor(profile));
+  const incursions = simulateRivalIncursions(map, owners, findNation, worldBoostFactor(profile));
   const capitalIncursion = incursions.find((inc) => isCapitalTile(map, inc.tileIndex)) || null;
   if (capitalIncursion) {
     // 首都級のタイルへの侵犯は自動没収にせず、迎撃戦の決着がつくまで奪取を保留する
