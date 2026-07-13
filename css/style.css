@@ -497,6 +497,11 @@ body {
 .top-mode-card:nth-child(2) { animation-delay: 0.12s; }
 .top-mode-card:nth-child(3) { animation-delay: 0.2s; }
 .top-mode-card:active { transform: scale(0.96); }
+.top-mode-card:disabled {
+  cursor: default;
+  filter: grayscale(0.7) brightness(0.92);
+}
+.top-mode-card:disabled:active { transform: none; }
 .top-mode-icon {
   font-size: 1.5rem;
   line-height: 1;
@@ -512,6 +517,16 @@ body {
 }
 .top-mode-card b { font-size: 1.1rem; display: block; }
 .top-mode-card span:not(.top-mode-icon) { font-size: 0.8rem; color: var(--ink-soft); }
+.top-mode-card span.top-mode-badge {
+  display: inline-block;
+  background: var(--ink-soft);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  line-height: 1.5;
+}
 .top-mode-card.cpu { background: linear-gradient(135deg, #e0f0ff, #cfe4ff); }
 .top-mode-card.online { background: linear-gradient(135deg, #eafce0, #d3f5da); }
 .top-mode-card.story { background: linear-gradient(135deg, #ffe6ee, #ffd0e0); }
